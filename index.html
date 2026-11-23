@@ -236,6 +236,7 @@
 <div class="overlay" id="watchOverlay">
   <div class="modal wide">
     <video class="watch-video" id="watchVideo" controls playsinline></video>
+    <iframe class="watch-video" id="watchFrame" style="display:none;border:0" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
     <div class="watch-info">
       <div>
         <h3 id="watchTitle"></h3>
@@ -271,7 +272,7 @@
 <div class="overlay" id="uploadOverlay">
   <div class="modal">
     <h3>Upload a video</h3>
-    <p class="hint">Upload an MP4 (max 50 MB), or paste a link to a video that's already hosted, like a GitHub link.</p>
+    <p class="hint">Upload an MP4 (max 50 MB), or paste a <b>YouTube</b> (unlisted works) or GitHub link — links have no size limit.</p>
     <label for="upTitle">Title</label>
     <input class="field" id="upTitle" placeholder="e.g. Episode 12 — The Big One">
     <div class="row">
@@ -297,16 +298,16 @@
     <label>Video</label>
     <div class="tabs" id="srcTabs">
       <button class="active" data-src="file">Upload file</button>
-      <button data-src="link">GitHub link</button>
+      <button data-src="link">YouTube / GitHub link</button>
     </div>
     <div id="srcFile" style="margin-top:12px">
       <div class="drop" id="drop"><b>Choose a video</b> or drag it here<br><small>MP4 recommended · under 50 MB</small></div>
       <input type="file" id="fileInput" accept="video/*" hidden>
     </div>
     <div id="srcLink" style="margin-top:12px;display:none">
-      <input class="field" id="upLink" placeholder="https://github.com/user/repo/blob/main/ep1.mp4">
+      <input class="field" id="upLink" placeholder="https://youtu.be/… or https://github.com/…">
     </div>
-    <label for="upThumb">Thumbnail link (optional)</label>
+    <label for="upThumb">Thumbnail link (optional — YouTube links use their own)</label>
     <input class="field" id="upThumb" placeholder="Leave blank to use a frame from the video">
 
     <div class="progress" id="progress"><i></i></div>
@@ -367,6 +368,14 @@ function resolveSrc(p){
   return `${CONFIG.supabaseUrl}/storage/v1/object/public/${CONFIG.bucket}/${p.split("/").map(encodeURIComponent).join("/")}`;
 }
 
+/* YouTube links (unlisted is fine) play in an embedded player — no size limit. */
+function ytId(url){
+  const m = String(url||"").match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/|v\/))([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+const ytEmbed = id => `https://www.youtube-nocookie.com/embed/${id}?rel=0&playsinline=1`;
+const ytThumb = id => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+
 /* ---------- data (Supabase) ---------- */
 async function load(){
   const { data, error } = await sb.from("videos").select("*").order("date",{ascending:false}).order("added",{ascending:false});
@@ -403,7 +412,10 @@ function render(){
     const src = resolveSrc(newest.src);
     if(shell.dataset.id !== newest.id){
       shell.dataset.id = newest.id;
-      shell.innerHTML = `<video controls playsinline preload="metadata" ${newest.thumb?`poster="${esc(resolveSrc(newest.thumb))}"`:""} src="${esc(src)}${newest.thumb?"":"#t=0.5"}"></video>`;
+      const yt = ytId(newest.src);
+      shell.innerHTML = yt
+        ? `<iframe src="${esc(ytEmbed(yt))}" title="${esc(newest.title)}" style="width:100%;height:100%;border:0;display:block" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`
+        : `<video controls playsinline preload="metadata" ${newest.thumb?`poster="${esc(resolveSrc(newest.thumb))}"`:""} src="${esc(src)}${newest.thumb?"":"#t=0.5"}"></video>`;
     }
     $("#featureMeta").innerHTML = `<div class="sub">Latest · ${esc(newest.segment||"")} · ${esc(fmtDate(newest.date))}</div><h2>${esc(newest.title)}</h2>`;
   }else{
@@ -424,8 +436,10 @@ function render(){
     return;
   }
   grid.innerHTML = list.map(x => {
+    const yt = ytId(x.src);
     const thumb = x.thumb
       ? `<img src="${esc(resolveSrc(x.thumb))}" alt="" loading="lazy">`
+      : yt ? `<img src="${esc(ytThumb(yt))}" alt="" loading="lazy">`
       : `<video muted preload="metadata" playsinline src="${esc(resolveSrc(x.src))}#t=1"></video>`;
     return `<article class="card" data-id="${esc(x.id)}">
       <button class="del" data-del="${esc(x.id)}" title="Delete video">✕</button>
@@ -438,15 +452,16 @@ function render(){
 /* ---------- watch ---------- */
 function openWatch(id){
   const x = state.videos.find(v=>v.id===id); if(!x) return;
-  const vid = $("#watchVideo");
-  vid.src = resolveSrc(x.src);
-  vid.poster = x.thumb ? resolveSrc(x.thumb) : "";
+  const vid = $("#watchVideo"), frame = $("#watchFrame"), yt = ytId(x.src);
+  vid.style.display = yt ? "none" : ""; frame.style.display = yt ? "" : "none";
+  if(yt){ vid.pause(); vid.removeAttribute("src"); frame.src = ytEmbed(yt) + "&autoplay=1"; }
+  else{ frame.removeAttribute("src"); vid.src = resolveSrc(x.src); vid.poster = x.thumb ? resolveSrc(x.thumb) : ""; }
   $("#watchTitle").textContent = x.title;
   $("#watchMeta").textContent = [x.segment, fmtDate(x.date)].filter(Boolean).join(" · ");
   $("#watchDesc").textContent = x.description || "";
   openModal("#watchOverlay");
   history.replaceState(null,"","#watch="+encodeURIComponent(id));
-  vid.play().catch(()=>{});
+  if(!yt) vid.play().catch(()=>{});
 }
 function openFromHash(){
   const m = location.hash.match(/^#watch=(.+)$/);
@@ -457,7 +472,7 @@ function openFromHash(){
 function openModal(sel){ $(sel).classList.add("open"); }
 function closeModal(el){
   el.classList.remove("open");
-  if(el.id==="watchOverlay"){ const v=$("#watchVideo"); v.pause(); v.removeAttribute("src"); v.load(); if(location.hash.startsWith("#watch=")) history.replaceState(null,"",location.pathname+location.search); }
+  if(el.id==="watchOverlay"){ const v=$("#watchVideo"); v.pause(); v.removeAttribute("src"); v.load(); $("#watchFrame").removeAttribute("src"); if(location.hash.startsWith("#watch=")) history.replaceState(null,"",location.pathname+location.search); }
 }
 document.querySelectorAll(".overlay").forEach(o=>{
   o.addEventListener("click", e => { if(e.target===o || e.target.closest("[data-close]")) closeModal(o); });
