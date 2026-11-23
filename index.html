@@ -252,17 +252,27 @@
 <!-- LOGIN MODAL -->
 <div class="overlay" id="loginOverlay">
   <div class="modal">
-    <h3>Admin login</h3>
-    <p class="hint">Only the site owner can upload. Log in with a GitHub access token that has write access to this repository. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a token</a> — pick this repo and give it <b>Contents: Read and write</b>.</p>
-    <label for="tokenInput">GitHub access token</label>
-    <input class="field" id="tokenInput" type="password" placeholder="github_pat_…" autocomplete="off">
+    <h3 id="loginTitle">Admin login</h3>
+    <p class="hint" id="loginHint">Only the site owner can upload.</p>
+    <label for="userInput">Username</label>
+    <input class="field" id="userInput" autocomplete="username" autocapitalize="off" spellcheck="false">
+    <label for="passInput">Password</label>
+    <input class="field" id="passInput" type="password" autocomplete="current-password">
+    <div id="setupBox" style="display:none">
+      <label for="tokenInput">GitHub access token <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:var(--sky);font-weight:500">(create one)</a></label>
+      <input class="field" id="tokenInput" type="password" placeholder="github_pat_…" autocomplete="off">
+      <p class="hint" style="margin:8px 0 0;font-size:12px">Pick only the Repton-Today repo and give it <b>Contents: Read and write</b>. It's encrypted with your password and saved in the repo, so you only do this once.</p>
+    </div>
     <label style="display:flex;gap:8px;align-items:center;font-weight:500;color:var(--muted)">
       <input type="checkbox" id="rememberMe" checked> Keep me logged in on this device
     </label>
     <div class="msg" id="loginMsg"></div>
-    <div class="modal-actions">
-      <button class="btn" data-close>Cancel</button>
-      <button class="btn btn-primary" id="loginBtn">Log in</button>
+    <div class="modal-actions" style="justify-content:space-between;align-items:center">
+      <a href="#" id="toggleSetup" style="color:var(--sky);font-size:13px">First-time setup</a>
+      <div style="display:flex;gap:10px">
+        <button class="btn" data-close>Cancel</button>
+        <button class="btn btn-primary" id="loginBtn">Log in</button>
+      </div>
     </div>
   </div>
 </div>
@@ -514,21 +524,71 @@ function setAuthedUI(){
 }
 function logout(){ state.token=null; state.user=null; store.del("rt_token"); setAuthedUI(); toast("Logged out"); }
 
-$("#openLogin").onclick = () => { $("#loginMsg").textContent=""; openModal("#loginOverlay"); setTimeout(()=>$("#tokenInput").focus(),50); };
+/* Username + password unlock a GitHub token that is stored encrypted in auth.json (AES-GCM, key from PBKDF2). */
+const enc = new TextEncoder(), dec = new TextDecoder();
+const toB64 = u8 => btoa(String.fromCharCode(...u8));
+const fromB64 = b => Uint8Array.from(atob(b), c => c.charCodeAt(0));
+async function deriveKey(user, pass, salt, iter){
+  const base = await crypto.subtle.importKey("raw", enc.encode(user.trim().toLowerCase()+"\n"+pass), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:iter, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+async function encryptToken(user, pass, token){
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12)), iter = 600000;
+  const key = await deriveKey(user, pass, salt, iter);
+  const data = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, enc.encode(token)));
+  return { v:1, iter, salt:toB64(salt), iv:toB64(iv), data:toB64(data) };
+}
+async function decryptToken(user, pass, blob){
+  const key = await deriveKey(user, pass, fromB64(blob.salt), blob.iter);
+  try{ return dec.decode(await crypto.subtle.decrypt({name:"AES-GCM", iv:fromB64(blob.iv)}, key, fromB64(blob.data))); }
+  catch(e){ throw new Error("Wrong username or password."); }
+}
+async function fetchAuthBlob(){
+  for(const url of ["auth.json?t="+Date.now(), `https://raw.githubusercontent.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}/auth.json?t=${Date.now()}`]){
+    try{ const r = await fetch(url); if(r.ok) return await r.json(); }catch(e){}
+  }
+  return null;
+}
+
+let setupMode = false;
+function setSetupMode(on){
+  setupMode = on;
+  $("#setupBox").style.display = on ? "" : "none";
+  $("#loginTitle").textContent = on ? "First-time setup" : "Admin login";
+  $("#loginHint").textContent = on ? "Choose the username and password you'll log in with. Run this again any time to change them." : "Only the site owner can upload.";
+  $("#loginBtn").textContent = on ? "Save & log in" : "Log in";
+  $("#toggleSetup").textContent = on ? "Back to login" : "First-time setup";
+  $("#loginMsg").textContent = "";
+}
+$("#toggleSetup").onclick = e => { e.preventDefault(); setSetupMode(!setupMode); };
+$("#openLogin").onclick = () => { setSetupMode(false); openModal("#loginOverlay"); setTimeout(()=>$("#userInput").focus(),50); };
 $("#logoutBtn").onclick = logout;
-$("#tokenInput").addEventListener("keydown", e => { if(e.key==="Enter") $("#loginBtn").click(); });
+["#userInput","#passInput","#tokenInput"].forEach(s => $(s).addEventListener("keydown", e => { if(e.key==="Enter") $("#loginBtn").click(); }));
 $("#loginBtn").onclick = async () => {
-  const t = $("#tokenInput").value.trim(), msg = $("#loginMsg");
-  if(!t){ msg.className="msg err"; msg.textContent="Paste your token first."; return; }
-  if(CONFIG.owner==="YOUR-GITHUB-USERNAME"){ msg.className="msg err"; msg.textContent="Site isn't set up yet — fill in CONFIG at the bottom of index.html."; return; }
-  $("#loginBtn").disabled = true; msg.className="msg"; msg.textContent="Checking…";
+  const user = $("#userInput").value.trim(), pass = $("#passInput").value, msg = $("#loginMsg");
+  if(!user || !pass){ msg.className="msg err"; msg.textContent="Enter your username and password."; return; }
+  $("#loginBtn").disabled = true; msg.className="msg"; msg.textContent = setupMode ? "Saving…" : "Checking…";
   try{
-    await login(t, $("#rememberMe").checked);
-    $("#tokenInput").value=""; closeModal($("#loginOverlay"));
+    let token;
+    if(setupMode){
+      token = $("#tokenInput").value.trim();
+      if(!token) throw new Error("Paste your GitHub token.");
+      await login(token, $("#rememberMe").checked);                  // proves the token has write access
+      const blob = await encryptToken(user, pass, token);
+      let sha; try{ sha = (await gh(`/contents/auth.json?ref=${CONFIG.branch}`)).sha; }catch(e){ if(e.status!==404) throw e; }
+      await gh(`/contents/auth.json`, { method:"PUT", body: JSON.stringify({ message:"Update admin login", branch:CONFIG.branch, content:b64encodeText(JSON.stringify(blob)), ...(sha?{sha}:{}) }) });
+      $("#tokenInput").value = "";
+    }else{
+      const blob = await fetchAuthBlob();
+      if(!blob) throw new Error("No login set up yet — click “First-time setup”.");
+      token = await decryptToken(user, pass, blob);
+      await login(token, $("#rememberMe").checked);
+    }
+    $("#passInput").value=""; closeModal($("#loginOverlay"));
     toast(`Welcome${state.user?", "+state.user.login:""}!`); load();
   }catch(e){
-    state.token=null; msg.className="msg err";
-    msg.textContent = e.status===401 ? "That token isn't valid." : e.status===404 ? "Token can't see the repo — make sure you selected it when creating the token." : e.message;
+    state.token=null; setAuthedUI(); msg.className="msg err";
+    msg.textContent = e.status===401 ? "That GitHub token isn't valid." : e.status===404 ? "Token can't see the repo — select Repton-Today when creating it." : e.message;
   }finally{ $("#loginBtn").disabled=false; }
 };
 
