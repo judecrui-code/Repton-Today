@@ -164,6 +164,7 @@
     .team-pill span{display:none}
   }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -252,27 +253,16 @@
 <!-- LOGIN MODAL -->
 <div class="overlay" id="loginOverlay">
   <div class="modal">
-    <h3 id="loginTitle">Admin login</h3>
-    <p class="hint" id="loginHint">Only the site owner can upload.</p>
+    <h3>Admin login</h3>
+    <p class="hint">Only the site owner can upload videos.</p>
     <label for="userInput">Username</label>
     <input class="field" id="userInput" autocomplete="username" autocapitalize="off" spellcheck="false">
     <label for="passInput">Password</label>
     <input class="field" id="passInput" type="password" autocomplete="current-password">
-    <div id="setupBox" style="display:none">
-      <label for="tokenInput">GitHub access token <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:var(--sky);font-weight:500">(create one)</a></label>
-      <input class="field" id="tokenInput" type="password" placeholder="github_pat_…" autocomplete="off">
-      <p class="hint" style="margin:8px 0 0;font-size:12px">Pick only the Repton-Today repo and give it <b>Contents: Read and write</b>. It's encrypted with your password and saved in the repo, so you only do this once.</p>
-    </div>
-    <label style="display:flex;gap:8px;align-items:center;font-weight:500;color:var(--muted)">
-      <input type="checkbox" id="rememberMe" checked> Keep me logged in on this device
-    </label>
     <div class="msg" id="loginMsg"></div>
-    <div class="modal-actions" style="justify-content:space-between;align-items:center">
-      <a href="#" id="toggleSetup" style="color:var(--sky);font-size:13px">First-time setup</a>
-      <div style="display:flex;gap:10px">
-        <button class="btn" data-close>Cancel</button>
-        <button class="btn btn-primary" id="loginBtn">Log in</button>
-      </div>
+    <div class="modal-actions">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn btn-primary" id="loginBtn">Log in</button>
     </div>
   </div>
 </div>
@@ -281,7 +271,7 @@
 <div class="overlay" id="uploadOverlay">
   <div class="modal">
     <h3>Upload a video</h3>
-    <p class="hint">Upload an MP4 straight into the repo (max 100 MB), or paste a GitHub link to a video that's already there.</p>
+    <p class="hint">Upload an MP4 (max 50 MB), or paste a link to a video that's already hosted, like a GitHub link.</p>
     <label for="upTitle">Title</label>
     <input class="field" id="upTitle" placeholder="e.g. Episode 12 — The Big One">
     <div class="row">
@@ -310,11 +300,11 @@
       <button data-src="link">GitHub link</button>
     </div>
     <div id="srcFile" style="margin-top:12px">
-      <div class="drop" id="drop"><b>Choose a video</b> or drag it here<br><small>MP4 recommended · under 100 MB</small></div>
+      <div class="drop" id="drop"><b>Choose a video</b> or drag it here<br><small>MP4 recommended · under 50 MB</small></div>
       <input type="file" id="fileInput" accept="video/*" hidden>
     </div>
     <div id="srcLink" style="margin-top:12px;display:none">
-      <input class="field" id="upLink" placeholder="https://github.com/user/repo/blob/main/videos/ep1.mp4">
+      <input class="field" id="upLink" placeholder="https://github.com/user/repo/blob/main/ep1.mp4">
     </div>
     <label for="upThumb">Thumbnail link (optional)</label>
     <input class="field" id="upThumb" placeholder="Leave blank to use a frame from the video">
@@ -332,16 +322,16 @@
 
 <script>
 /* ============================================================
-   SETUP — change these three lines to your GitHub repo.
+   SETTINGS (the publishable key is safe to be public)
    ============================================================ */
 const CONFIG = {
-  owner:  "judecrui-code",
-  repo:   "Repton-Today",
-  branch: "main"                    // branch GitHub Pages publishes from
+  owner: "judecrui-code", repo: "Repton-Today", branch: "main",   // only used to understand GitHub links
+  supabaseUrl: "https://klxhetlzbhkhevdxkzyi.supabase.co",
+  supabaseKey: "sb_publishable_ZpuQo4TgbQLeGoLsLE_cUQ_84XSilz0",
+  bucket: "videos",
+  emailDomain: "reptontoday.app"      // username "judecrui" signs in as judecrui@reptontoday.app
 };
-/* ============================================================ */
-
-const API = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}`;
+const sb = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
 const $ = s => document.querySelector(s);
 const state = { videos: [], filter: "All", q: "", sort: "new", token: null, user: null, file: null, src: "file" };
 
@@ -365,53 +355,23 @@ function playableUrl(url){
   const m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/(?:blob|raw)\/([^/]+)\/(.+?)(\?.*)?$/i);
   if(m){
     const [, o, r, b, path] = m;
-    // Same repo as this site → serve from GitHub Pages (correct video headers, no raw limits)
-    if(o.toLowerCase()===CONFIG.owner.toLowerCase() && r.toLowerCase()===CONFIG.repo.toLowerCase() && isPagesHost()) return path;
     return `https://raw.githubusercontent.com/${o}/${r}/${b}/${path}`;
   }
   return url;
 }
 function isPagesHost(){ return /github\.io$/i.test(location.hostname); }
-// Files committed to this repo are stored as relative paths ("videos/x.mp4").
+// Uploaded files are stored as paths inside the Supabase "videos" bucket.
 function resolveSrc(p){
   if(!p) return "";
   if(/^https?:\/\//i.test(p)) return playableUrl(p);
-  if(isPagesHost()) return p;
-  return `https://raw.githubusercontent.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}/${p}`;
+  return `${CONFIG.supabaseUrl}/storage/v1/object/public/${CONFIG.bucket}/${p.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-/* ---------- GitHub API ---------- */
-async function gh(path, opts={}){
-  const res = await fetch(API + path, {
-    ...opts,
-    headers: { "Accept":"application/vnd.github+json", ...(state.token?{"Authorization":`Bearer ${state.token}`}:{}), ...(opts.headers||{}) }
-  });
-  if(!res.ok){
-    let msg = res.status + " " + res.statusText;
-    try{ const j = await res.json(); if(j.message) msg = j.message; }catch(e){}
-    const err = new Error(msg); err.status = res.status; throw err;
-  }
-  return res.status===204 ? null : res.json();
-}
-
-async function readVideosFromApi(){
-  try{
-    const f = await gh(`/contents/videos.json?ref=${CONFIG.branch}&t=${Date.now()}`);
-    return { list: JSON.parse(b64decodeText(f.content)), sha: f.sha };
-  }catch(e){
-    if(e.status===404) return { list: [], sha: null };
-    throw e;
-  }
-}
-
-/* ---------- load ---------- */
+/* ---------- data (Supabase) ---------- */
 async function load(){
-  let list = null;
-  // Logged in → read straight from the repo so new uploads show instantly.
-  if(state.token){ try{ list = (await readVideosFromApi()).list; }catch(e){} }
-  if(!list){ try{ const r = await fetch("videos.json?t="+Date.now()); if(r.ok) list = await r.json(); }catch(e){} }
-  if(!list){ try{ list = (await readVideosFromApi()).list; }catch(e){} }
-  state.videos = Array.isArray(list) ? list : [];
+  const { data, error } = await sb.from("videos").select("*").order("date",{ascending:false}).order("added",{ascending:false});
+  state.videos = error ? [] : (data || []);
+  if(error) console.error(error);
   render();
   openFromHash();
 }
@@ -504,92 +464,33 @@ document.querySelectorAll(".overlay").forEach(o=>{
 });
 document.addEventListener("keydown", e => { if(e.key==="Escape") document.querySelectorAll(".overlay.open").forEach(closeModal); });
 
-/* ---------- auth ---------- */
-async function login(token, persist){
-  state.token = token;
-  const repo = await gh("");                       // checks token can see the repo
-  if(!repo.permissions || !repo.permissions.push){ state.token=null; throw new Error("This account can't upload (no write access to the repo)."); }
-  let user = null;
-  try{ const r = await fetch("https://api.github.com/user",{headers:{Authorization:`Bearer ${token}`}}); if(r.ok) user = await r.json(); }catch(e){}
-  state.user = user;
-  store.set("rt_token", token, persist);
-  setAuthedUI();
-}
+/* ---------- auth (Supabase) ---------- */
+const toEmail = u => { u = u.trim().toLowerCase(); return u.includes("@") ? u : `${u}@${CONFIG.emailDomain}`; };
 function setAuthedUI(){
   document.body.classList.toggle("authed", !!state.token);
-  if(state.user){
-    $("#teamAvatar").src = state.user.avatar_url || "";
-    $("#teamName").textContent = state.user.login || "Team";
-  }else{ $("#teamName").textContent = "Team"; $("#teamAvatar").removeAttribute("src"); }
+  $("#teamName").textContent = state.user || "Admin";
+  $("#teamAvatar").style.display = "none";
 }
-function logout(){ state.token=null; state.user=null; store.del("rt_token"); setAuthedUI(); toast("Logged out"); }
+async function applySession(session){
+  state.token = session ? session.access_token : null;
+  state.user = session ? (session.user.email || "").split("@")[0] : null;
+  setAuthedUI();
+}
+async function logout(){ await sb.auth.signOut(); await applySession(null); toast("Logged out"); }
 
-/* Username + password unlock a GitHub token that is stored encrypted in auth.json (AES-GCM, key from PBKDF2). */
-const enc = new TextEncoder(), dec = new TextDecoder();
-const toB64 = u8 => btoa(String.fromCharCode(...u8));
-const fromB64 = b => Uint8Array.from(atob(b), c => c.charCodeAt(0));
-async function deriveKey(user, pass, salt, iter){
-  const base = await crypto.subtle.importKey("raw", enc.encode(user.trim().toLowerCase()+"\n"+pass), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:iter, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
-}
-async function encryptToken(user, pass, token){
-  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12)), iter = 600000;
-  const key = await deriveKey(user, pass, salt, iter);
-  const data = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, enc.encode(token)));
-  return { v:1, iter, salt:toB64(salt), iv:toB64(iv), data:toB64(data) };
-}
-async function decryptToken(user, pass, blob){
-  const key = await deriveKey(user, pass, fromB64(blob.salt), blob.iter);
-  try{ return dec.decode(await crypto.subtle.decrypt({name:"AES-GCM", iv:fromB64(blob.iv)}, key, fromB64(blob.data))); }
-  catch(e){ throw new Error("Wrong username or password."); }
-}
-async function fetchAuthBlob(){
-  for(const url of ["auth.json?t="+Date.now(), `https://raw.githubusercontent.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}/auth.json?t=${Date.now()}`]){
-    try{ const r = await fetch(url); if(r.ok) return await r.json(); }catch(e){}
-  }
-  return null;
-}
-
-let setupMode = false;
-function setSetupMode(on){
-  setupMode = on;
-  $("#setupBox").style.display = on ? "" : "none";
-  $("#loginTitle").textContent = on ? "First-time setup" : "Admin login";
-  $("#loginHint").textContent = on ? "Choose the username and password you'll log in with. Run this again any time to change them." : "Only the site owner can upload.";
-  $("#loginBtn").textContent = on ? "Save & log in" : "Log in";
-  $("#toggleSetup").textContent = on ? "Back to login" : "First-time setup";
-  $("#loginMsg").textContent = "";
-}
-$("#toggleSetup").onclick = e => { e.preventDefault(); setSetupMode(!setupMode); };
-$("#openLogin").onclick = () => { setSetupMode(false); openModal("#loginOverlay"); setTimeout(()=>$("#userInput").focus(),50); };
+$("#openLogin").onclick = () => { $("#loginMsg").textContent=""; openModal("#loginOverlay"); setTimeout(()=>$("#userInput").focus(),50); };
 $("#logoutBtn").onclick = logout;
-["#userInput","#passInput","#tokenInput"].forEach(s => $(s).addEventListener("keydown", e => { if(e.key==="Enter") $("#loginBtn").click(); }));
+["#userInput","#passInput"].forEach(sel => $(sel).addEventListener("keydown", e => { if(e.key==="Enter") $("#loginBtn").click(); }));
 $("#loginBtn").onclick = async () => {
-  const user = $("#userInput").value.trim(), pass = $("#passInput").value, msg = $("#loginMsg");
-  if(!user || !pass){ msg.className="msg err"; msg.textContent="Enter your username and password."; return; }
-  $("#loginBtn").disabled = true; msg.className="msg"; msg.textContent = setupMode ? "Saving…" : "Checking…";
-  try{
-    let token;
-    if(setupMode){
-      token = $("#tokenInput").value.trim();
-      if(!token) throw new Error("Paste your GitHub token.");
-      await login(token, $("#rememberMe").checked);                  // proves the token has write access
-      const blob = await encryptToken(user, pass, token);
-      let sha; try{ sha = (await gh(`/contents/auth.json?ref=${CONFIG.branch}`)).sha; }catch(e){ if(e.status!==404) throw e; }
-      await gh(`/contents/auth.json`, { method:"PUT", body: JSON.stringify({ message:"Update admin login", branch:CONFIG.branch, content:b64encodeText(JSON.stringify(blob)), ...(sha?{sha}:{}) }) });
-      $("#tokenInput").value = "";
-    }else{
-      const blob = await fetchAuthBlob();
-      if(!blob) throw new Error("No login set up yet — click “First-time setup”.");
-      token = await decryptToken(user, pass, blob);
-      await login(token, $("#rememberMe").checked);
-    }
-    $("#passInput").value=""; closeModal($("#loginOverlay"));
-    toast(`Welcome${state.user?", "+state.user.login:""}!`); load();
-  }catch(e){
-    state.token=null; setAuthedUI(); msg.className="msg err";
-    msg.textContent = e.status===401 ? "That GitHub token isn't valid." : e.status===404 ? "Token can't see the repo — select Repton-Today when creating it." : e.message;
-  }finally{ $("#loginBtn").disabled=false; }
+  const user = $("#userInput").value, pass = $("#passInput").value, msg = $("#loginMsg");
+  if(!user.trim() || !pass){ msg.className="msg err"; msg.textContent="Enter your username and password."; return; }
+  $("#loginBtn").disabled = true; msg.className="msg"; msg.textContent="Checking…";
+  const { data, error } = await sb.auth.signInWithPassword({ email: toEmail(user), password: pass });
+  $("#loginBtn").disabled = false;
+  if(error){ msg.className="msg err"; msg.textContent = /invalid/i.test(error.message) ? "Wrong username or password." : error.message; return; }
+  await applySession(data.session);
+  $("#passInput").value=""; closeModal($("#loginOverlay"));
+  toast(`Welcome, ${state.user}!`);
 };
 
 /* ---------- upload ---------- */
@@ -614,7 +515,7 @@ drop.addEventListener("drop", e => setFile(e.dataTransfer.files[0]));
 function setFile(f){
   if(!f) return;
   if(!f.type.startsWith("video/")){ toast("That isn't a video file"); return; }
-  if(f.size > 100*1024*1024){ toast("Too big — GitHub's limit is 100 MB per file"); return; }
+  if(f.size > 50*1024*1024){ toast("Too big — the limit is 50 MB per file"); return; }
   state.file = f;
   drop.innerHTML = `<b>${esc(f.name)}</b><br><small>${(f.size/1048576).toFixed(1)} MB · click to change</small>`;
   if(!$("#upTitle").value) $("#upTitle").value = f.name.replace(/\.[^.]+$/,"").replace(/[-_]+/g," ");
@@ -632,50 +533,38 @@ $("#publishBtn").onclick = async () => {
   if(state.src==="link" && !/^https?:\/\//i.test($("#upLink").value.trim())){ msg.className="msg err"; msg.textContent="Paste a full link starting with https://"; return; }
 
   btn.disabled = true; msg.className="msg";
+  let uploadedPath = null;
   try{
     const id = slug(title) + "-" + Date.now().toString(36);
     let src;
     if(state.src==="file"){
-      msg.textContent = "Preparing video…"; setProgress(10);
       const ext = (state.file.name.match(/\.[^.]+$/)||[".mp4"])[0].toLowerCase();
-      const path = `videos/${id}${ext}`;
-      const content = await fileToBase64(state.file);
-      msg.textContent = "Uploading to GitHub… (big files take a minute)"; setProgress(35);
-      await gh(`/contents/${path}`, { method:"PUT", body: JSON.stringify({ message:`Upload video: ${title}`, content, branch: CONFIG.branch }) });
-      src = path;
+      uploadedPath = `${id}${ext}`;
+      msg.textContent = "Uploading… (big files take a minute)"; setProgress(30);
+      const { error: upErr } = await sb.storage.from(CONFIG.bucket).upload(uploadedPath, state.file, { contentType: state.file.type || "video/mp4", cacheControl: "31536000", upsert: false });
+      if(upErr) throw upErr;
+      src = uploadedPath;
     }else{
       src = $("#upLink").value.trim();
     }
-    setProgress(75); msg.textContent = "Adding to the library…";
-    const entry = { id, title, segment: $("#upSegment").value, date: $("#upDate").value, description: $("#upDesc").value.trim(), src, thumb: $("#upThumb").value.trim() || undefined, added: Date.now(), by: state.user?.login };
-    await saveList(list => [entry, ...list], `Add video: ${title}`);
-    setProgress(100); msg.className="msg ok"; msg.textContent = "Published! Visitors will see it within a minute or two.";
+    setProgress(80); msg.textContent = "Adding to the library…";
+    const entry = { id, title, segment: $("#upSegment").value, date: $("#upDate").value || null, description: $("#upDesc").value.trim() || null, src, thumb: $("#upThumb").value.trim() || null, added: Date.now() };
+    const { error } = await sb.from("videos").insert(entry);
+    if(error) throw error;
+    setProgress(100); msg.className="msg ok"; msg.textContent = "Published! It's live now.";
     toast("Video published");
     resetUpload();
+    await load();
     setTimeout(()=>closeModal($("#uploadOverlay")), 900);
   }catch(e){
-    msg.className="msg err"; msg.textContent = "Upload failed: " + e.message;
+    if(uploadedPath) sb.storage.from(CONFIG.bucket).remove([uploadedPath]);
+    msg.className="msg err"; msg.textContent = "Upload failed: " + (e.message || e);
   }finally{ btn.disabled=false; }
 };
 function resetUpload(){
   state.file=null; fileInput.value="";
   ["#upTitle","#upDesc","#upLink","#upThumb"].forEach(s=>$(s).value="");
-  drop.innerHTML = `<b>Choose a video</b> or drag it here<br><small>MP4 recommended · under 100 MB</small>`;
-}
-
-// Read-modify-write videos.json, retrying once if someone else saved at the same time.
-async function saveList(mutator, message){
-  for(let attempt=0; attempt<3; attempt++){
-    const { list, sha } = await readVideosFromApi();
-    const next = mutator(list);
-    try{
-      await gh(`/contents/videos.json`, { method:"PUT", body: JSON.stringify({
-        message, branch: CONFIG.branch, content: b64encodeText(JSON.stringify(next, null, 2) + "\n"), ...(sha?{sha}:{})
-      })});
-      state.videos = next; render(); return;
-    }catch(e){ if(e.status!==409 && e.status!==422) throw e; }
-  }
-  throw new Error("Couldn't save — someone else was editing. Try again.");
+  drop.innerHTML = `<b>Choose a video</b> or drag it here<br><small>MP4 recommended · under 50 MB</small>`;
 }
 
 /* ---------- delete ---------- */
@@ -683,13 +572,11 @@ async function deleteVideo(id){
   const x = state.videos.find(v=>v.id===id); if(!x) return;
   if(!confirm(`Delete "${x.title}"?`)) return;
   try{
-    await saveList(list => list.filter(v=>v.id!==id), `Remove video: ${x.title}`);
-    // Also remove the file itself if it lives in this repo
-    if(x.src && !/^https?:/i.test(x.src)){
-      try{ const f = await gh(`/contents/${x.src}?ref=${CONFIG.branch}`); await gh(`/contents/${x.src}`,{method:"DELETE",body:JSON.stringify({message:`Delete file: ${x.title}`,sha:f.sha,branch:CONFIG.branch})}); }catch(e){}
-    }
-    toast("Video deleted");
-  }catch(e){ toast("Delete failed: "+e.message); }
+    const { error } = await sb.from("videos").delete().eq("id", id);
+    if(error) throw error;
+    if(x.src && !/^https?:/i.test(x.src)) await sb.storage.from(CONFIG.bucket).remove([x.src]);
+    toast("Video deleted"); await load();
+  }catch(e){ toast("Delete failed: "+(e.message||e)); }
 }
 
 /* ---------- events ---------- */
@@ -706,10 +593,9 @@ $("#year").textContent = new Date().getFullYear();
 
 /* ---------- start ---------- */
 (async () => {
-  const saved = store.get("rt_token");
-  let persisted = false; try{ persisted = !!localStorage.getItem("rt_token"); }catch(e){}
-  if(saved){ try{ await login(saved, persisted); }catch(e){ store.del("rt_token"); state.token=null; } }
-  setAuthedUI();
+  const { data } = await sb.auth.getSession();
+  await applySession(data.session);
+  sb.auth.onAuthStateChange((_e, session) => applySession(session));
   load();
 })();
 </script>
