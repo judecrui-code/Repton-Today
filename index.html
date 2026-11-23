@@ -107,6 +107,15 @@
   body.authed .card .del{display:block}
   .empty{text-align:center;padding:60px 20px;color:#667c97;border:1px dashed rgba(11,37,69,.25);border-radius:12px;background:#fff}
 
+  .card .pin{position:absolute;top:10px;right:46px;z-index:3;display:none;width:30px;height:30px;border-radius:8px;
+      border:1px solid rgba(184,144,47,.7);background:rgba(255,255,255,.95);color:var(--gold);cursor:pointer;font-size:15px;line-height:1}
+  body.authed .card .pin{display:block}
+  .card .pin.on{background:var(--gold);color:#fff}
+  .card-body .date .feat{color:var(--gold);font-weight:700}
+  .strip{margin-bottom:42px}
+  .sec-title{font:700 30px/1 'Cormorant Garamond',Georgia,serif;color:var(--ink)}
+  .prog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.35)}
+  .prog i{display:block;height:100%;background:var(--gold-2)}
   /* ABOUT */
   .about{background:#fff;border-top:1px solid var(--line-l);border-bottom:1px solid var(--line-l);padding:54px 0}
   .about-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:46px;align-items:start}
@@ -176,6 +185,20 @@
   .ytp-seek::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(217,184,102,.55)}
   .ytp-seek::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:#fff}
   .ytp:fullscreen{width:100vw;height:100vh;aspect-ratio:auto;border-radius:0}
+  .watch-next{display:none;align-items:center;gap:14px;padding:14px 26px;background:rgba(217,184,102,.12);
+      border-top:1px solid rgba(217,184,102,.35);border-bottom:1px solid rgba(217,184,102,.35)}
+  .watch-next.show{display:flex}
+  .watch-next small{color:var(--gold-2);letter-spacing:.14em;text-transform:uppercase;font-weight:600;font-size:11px}
+  .wn-title{font:700 20px/1.2 'Cormorant Garamond',Georgia,serif;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wn-count{color:var(--gold-2);font-weight:600;font-size:14px;white-space:nowrap}
+  .more{padding:0 26px 26px}
+  .more h4{font:700 22px 'Cormorant Garamond',Georgia,serif;margin-bottom:12px;color:#fff}
+  .more-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+  .mini{cursor:pointer;border-radius:8px;overflow:hidden;background:rgba(255,255,255,.05);border:1px solid var(--line);transition:.15s}
+  .mini:hover{border-color:var(--gold-2);transform:translateY(-2px)}
+  .mini .t{aspect-ratio:16/9;background:#17386a}
+  .mini img,.mini video{width:100%;height:100%;object-fit:cover;display:block}
+  .mini span{display:block;padding:8px 10px;font-size:13px;font-weight:600;line-height:1.3;color:var(--text)}
   footer{background:var(--ink);color:#b9c8dd;padding:34px 0;font-size:13px;border-top:4px solid var(--gold)}
   footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
   .foot-brand{display:flex;align-items:center;gap:12px;color:#fff}
@@ -252,11 +275,14 @@
         <select class="search" id="sort" style="min-width:0" aria-label="Sort videos">
           <option value="new">Newest first</option>
           <option value="old">Oldest first</option>
+          <option value="views">Most watched</option>
           <option value="az">A–Z</option>
         </select>
       </div>
     </div>
     <div class="rule"></div>
+    <div id="contWrap"></div>
+    <div id="topWrap"></div>
     <div class="chips" id="chips"></div>
     <div class="grid" id="grid"></div>
   </div>
@@ -281,6 +307,7 @@
   <div class="modal wide">
     <video class="watch-video" id="watchVideo" controls playsinline></video>
     <div class="watch-video" id="watchYT" style="display:none"></div>
+    <div class="watch-next" id="watchNext"></div>
     <div class="watch-info">
       <div>
         <h3 id="watchTitle"></h3>
@@ -288,10 +315,12 @@
         <p id="watchDesc"></p>
       </div>
       <div style="display:flex;gap:8px">
+        <button class="btn" id="waBtn">WhatsApp</button>
         <button class="btn" id="shareBtn">Copy link</button>
         <button class="close-x" data-close>✕</button>
       </div>
     </div>
+    <div class="more" id="watchMore"></div>
   </div>
 </div>
 
@@ -393,6 +422,35 @@ const b64decodeText = b64 => decodeURIComponent(escape(atob(b64.replace(/\n/g,""
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,50) || "video";
 function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2600); }
 
+/* ---------- watch progress + view counting (per browser) ---------- */
+const PROG_KEY = "rt_progress", SEEN_KEY = "rt_seen";
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k) || "{}"); }catch(e){ return {}; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function saveProgress(id, t, d){
+  if(!d || d < 20) return;
+  const m = lsGet(PROG_KEY);
+  if(t < 10 || t > d - 10) delete m[id]; else m[id] = { t: Math.floor(t), d: Math.floor(d), ts: Date.now() };
+  lsSet(PROG_KEY, m);
+}
+function clearProgress(id){ const m = lsGet(PROG_KEY); if(m[id]){ delete m[id]; lsSet(PROG_KEY, m); } }
+function getProgress(id){ const p = lsGet(PROG_KEY)[id]; return p && p.t >= 10 ? p : null; }
+function countView(id){
+  if(state.token) return;                                   // don't count the admin's own plays
+  const seen = lsGet(SEEN_KEY), now = Date.now();
+  if(seen[id] && now - seen[id] < 6*3600*1000) return;      // once per viewer every 6 hours
+  seen[id] = now; lsSet(SEEN_KEY, seen);
+  const x = state.videos.find(v => v.id === id); if(x) x.views = (x.views || 0) + 1;
+  sb.rpc("increment_view", { vid: id }).then(()=>{}, ()=>{});
+}
+function hookNative(v, id, opts = {}){
+  let armed = false, last = 0, counted = false;
+  const p = getProgress(id);
+  v.onloadedmetadata = () => { if(p && p.t < v.duration - 10){ try{ v.currentTime = p.t; }catch(e){} } armed = true; };
+  v.onplay = () => { if(!counted){ counted = true; countView(id); } };
+  v.ontimeupdate = () => { if(!armed || v.paused) return; const n = Date.now(); if(n - last > 4000){ last = n; saveProgress(id, v.currentTime, v.duration); } };
+  v.onended = () => { clearProgress(id); if(opts.onEnded) opts.onEnded(); };
+}
+
 /* Turn any GitHub link into one a <video> tag can play. */
 function playableUrl(url){
   if(!url) return "";
@@ -436,7 +494,8 @@ const ICON = {
   fs:'<svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg>'
 };
 /* Mounts a YouTube video inside `box` with our own controls, so it behaves like a normal video on the site. */
-function mountYT(box, id, poster, autoplay){
+function mountYT(box, id, poster, autoplay, hooks){
+  hooks = hooks || {};
   if(box._yt) box._yt();
   box.classList.add("ytp");
   box.innerHTML = `<div class="ytp-frame"><div></div></div>
@@ -454,13 +513,13 @@ function mountYT(box, id, poster, autoplay){
   loadYT();   // warm up YouTube's script so the first click starts quickly
   const q = sel => box.querySelector(sel);
   const seek = q(".ytp-seek");
-  let player = null, ready = false, dead = false, timer = null, idle = null;
+  let player = null, ready = false, dead = false, timer = null, idle = null, playedOnce = false, lastSave = 0;
   const setPP = playing => { q('[data-a="pp"]').innerHTML = playing ? ICON.pause : ICON.play; box.classList.toggle("playing", playing); };
   function onState(e){
     const S = YT.PlayerState;
-    if(e.data === S.PLAYING){ box.classList.add("started"); box.classList.remove("ended","loading"); setPP(true); }
+    if(e.data === S.PLAYING){ box.classList.add("started"); box.classList.remove("ended","loading"); setPP(true); if(!playedOnce){ playedOnce = true; if(hooks.onPlay) hooks.onPlay(); } }
     else if(e.data === S.PAUSED){ box.classList.remove("loading"); setPP(false); }
-    else if(e.data === S.ENDED){ box.classList.remove("loading"); box.classList.add("ended"); setPP(false); }
+    else if(e.data === S.ENDED){ box.classList.remove("loading"); box.classList.add("ended"); setPP(false); if(hooks.onEnded) hooks.onEnded(); }
     else if(e.data === S.BUFFERING){ box.classList.add("loading"); }
   }
   function tick(){
@@ -469,13 +528,14 @@ function mountYT(box, id, poster, autoplay){
     q('[data-a="cur"]').textContent = fmtT(c); q('[data-a="dur"]').textContent = fmtT(d);
     if(d && document.activeElement !== seek){ seek.value = Math.round(c/d*1000); }
     seek.style.backgroundSize = (seek.value/10)+"% 100%";
+    if(hooks.onProgress && box.classList.contains("playing") && Date.now() - lastSave > 4000){ lastSave = Date.now(); hooks.onProgress(c, d); }
   }
   function init(play){
     loadYT().then(() => {
       if(dead) return;
       player = new YT.Player(q(".ytp-frame > div"), {
         host: "https://www.youtube-nocookie.com", videoId: id,
-        playerVars: { controls:0, disablekb:1, modestbranding:1, rel:0, playsinline:1, iv_load_policy:3, fs:0, cc_load_policy:0, autoplay: play?1:0 },
+        playerVars: { controls:0, disablekb:1, modestbranding:1, rel:0, playsinline:1, iv_load_policy:3, fs:0, cc_load_policy:0, autoplay: play?1:0, start: Math.floor(hooks.start || 0) },
         events: { onReady: e => { ready = true; try{ e.target.unloadModule && e.target.unloadModule("captions"); }catch(_){} if(play) e.target.playVideo(); tick(); }, onStateChange: onState }
       });
       timer = setInterval(tick, 250);
@@ -531,8 +591,29 @@ function sorted(list){
   const l = [...list];
   if(state.sort==="new") l.sort((a,b)=>(b.date||"").localeCompare(a.date||"") || (b.added||0)-(a.added||0));
   if(state.sort==="old") l.sort((a,b)=>(a.date||"").localeCompare(b.date||"") || (a.added||0)-(b.added||0));
+  if(state.sort==="views") l.sort((a,b)=>(b.views||0)-(a.views||0) || (b.date||"").localeCompare(a.date||""));
   if(state.sort==="az") l.sort((a,b)=>a.title.localeCompare(b.title));
   return l;
+}
+
+const byNew = list => [...list].sort((a,b)=>(b.date||"").localeCompare(a.date||"") || (b.added||0)-(a.added||0));
+function thumbHTML(x){
+  const yt = ytId(x.src);
+  return x.thumb ? `<img src="${esc(resolveSrc(x.thumb))}" alt="" loading="lazy">`
+    : yt ? `<img src="${esc(ytThumb(yt))}" alt="" loading="lazy">`
+    : `<video muted preload="metadata" playsinline src="${esc(resolveSrc(x.src))}#t=1"></video>`;
+}
+function cardHTML(x, opts = {}){
+  const views = x.views || 0;
+  const meta = [esc(fmtDate(x.date)), views ? `${views.toLocaleString()} view${views===1?"":"s"}` : "", x.featured ? `<span class="feat">★ Featured</span>` : ""].filter(Boolean).join(" · ");
+  const admin = opts.plain ? "" : `<button class="pin ${x.featured?"on":""}" data-pin="${esc(x.id)}" title="${x.featured?"Unpin from featured":"Pin as featured"}">★</button>
+      <button class="del" data-del="${esc(x.id)}" title="Delete video">✕</button>`;
+  const prog = opts.progress ? `<div class="prog"><i style="width:${Math.min(100, Math.round(opts.progress.t / opts.progress.d * 100))}%"></i></div>` : "";
+  return `<article class="card" data-id="${esc(x.id)}">
+      ${admin}
+      <div class="thumb">${thumbHTML(x)}<span class="tag">${esc(x.segment||"Video")}</span><div class="play"><div class="play-btn"></div></div>${prog}</div>
+      <div class="card-body"><h4>${esc(x.title)}</h4><div class="date">${meta}</div></div>
+    </article>`;
 }
 
 function render(){
@@ -540,33 +621,48 @@ function render(){
   const segs = [...new Set(v.map(x=>x.segment).filter(Boolean))];
   $("#statCount").textContent = v.length;
   $("#statSegs").textContent = segs.length;
-  const newest = sorted(v)[0];
+  const newest = byNew(v)[0];
   $("#statLatest").textContent = newest ? fmtDate(newest.date).replace(/,? \d{4}$/,"") : "—";
 
   // chips
   if(!["All",...segs].includes(state.filter)) state.filter="All";
   $("#chips").innerHTML = ["All",...segs].map(s=>`<button class="chip ${s===state.filter?"active":""}" data-seg="${esc(s)}">${esc(s)}</button>`).join("");
 
-  // featured
+  // featured: the pinned video if there is one, otherwise the newest
+  const feat = v.find(x => x.featured) || newest;
   const shell = $("#featureShell");
-  if(newest){
-    const src = resolveSrc(newest.src);
-    if(shell.dataset.id !== newest.id){
-      shell.dataset.id = newest.id;
-      const yt = ytId(newest.src);
+  if(feat){
+    const src = resolveSrc(feat.src);
+    if(shell.dataset.id !== feat.id){
+      shell.dataset.id = feat.id;
+      const yt = ytId(feat.src), prog = getProgress(feat.id);
       if(shell._yt) shell._yt();
-      if(yt) mountYT(shell, yt, newest.thumb ? resolveSrc(newest.thumb) : ytThumb(yt), false);
-      else shell.innerHTML = `<video controls playsinline preload="metadata" ${newest.thumb?`poster="${esc(resolveSrc(newest.thumb))}"`:""} src="${esc(src)}${newest.thumb?"":"#t=0.5"}"></video>`;
+      if(yt) mountYT(shell, yt, feat.thumb ? resolveSrc(feat.thumb) : ytThumb(yt), false, { start: prog ? prog.t : 0, onPlay: () => countView(feat.id), onProgress: (t,d) => saveProgress(feat.id,t,d), onEnded: () => clearProgress(feat.id) });
+      else{
+        shell.innerHTML = `<video controls playsinline preload="metadata" ${feat.thumb?`poster="${esc(resolveSrc(feat.thumb))}"`:""} src="${esc(src)}${feat.thumb?"":"#t=0.5"}"></video>`;
+        hookNative(shell.querySelector("video"), feat.id);
+      }
     }
-    $("#featureMeta").innerHTML = `<div class="sub">Latest · ${esc(newest.segment||"")} · ${esc(fmtDate(newest.date))}</div><h2>${esc(newest.title)}</h2>`;
+    $("#featureMeta").innerHTML = `<div class="sub">${feat.featured ? "Featured" : "Latest"} · ${esc(feat.segment||"")} · ${esc(fmtDate(feat.date))}</div><h2>${esc(feat.title)}</h2>`;
   }else{
     shell.dataset.id = ""; if(shell._yt) shell._yt();
     shell.innerHTML = `<div class="empty-player"><div><div class="big">No episodes yet</div>The team hasn't uploaded anything — check back soon.</div></div>`;
     $("#featureMeta").innerHTML = "";
   }
 
-  // grid
   const q = state.q.toLowerCase();
+  const browsing = state.filter === "All" && !q;
+
+  // continue watching (this browser only)
+  const prog = lsGet(PROG_KEY);
+  const cont = browsing ? Object.entries(prog).map(([id,p]) => ({ x: v.find(y => y.id === id), p })).filter(o => o.x && o.p.t >= 10).sort((a,b) => b.p.ts - a.p.ts).slice(0,4) : [];
+  $("#contWrap").innerHTML = cont.length ? `<div class="strip"><h3 class="sec-title">Continue watching</h3><div class="rule" style="margin-bottom:20px"></div><div class="grid">${cont.map(o => cardHTML(o.x, { plain:true, progress:o.p })).join("")}</div></div>` : "";
+
+  // most watched
+  const top = browsing && v.length >= 4 ? [...v].filter(x => (x.views||0) > 0).sort((a,b) => (b.views||0)-(a.views||0)).slice(0,4) : [];
+  $("#topWrap").innerHTML = top.length >= 2 ? `<div class="strip"><h3 class="sec-title">Most watched</h3><div class="rule" style="margin-bottom:20px"></div><div class="grid">${top.map(x => cardHTML(x, { plain:true })).join("")}</div></div>` : "";
+
+  // all videos
   const list = sorted(v).filter(x =>
     (state.filter==="All" || x.segment===state.filter) &&
     (!q || (x.title+" "+(x.description||"")+" "+(x.segment||"")).toLowerCase().includes(q))
@@ -576,31 +672,48 @@ function render(){
     grid.innerHTML = `<div class="empty" style="grid-column:1/-1">${v.length ? "No videos match that search." : "No videos yet."}</div>`;
     return;
   }
-  grid.innerHTML = list.map(x => {
-    const yt = ytId(x.src);
-    const thumb = x.thumb
-      ? `<img src="${esc(resolveSrc(x.thumb))}" alt="" loading="lazy">`
-      : yt ? `<img src="${esc(ytThumb(yt))}" alt="" loading="lazy">`
-      : `<video muted preload="metadata" playsinline src="${esc(resolveSrc(x.src))}#t=1"></video>`;
-    return `<article class="card" data-id="${esc(x.id)}">
-      <button class="del" data-del="${esc(x.id)}" title="Delete video">✕</button>
-      <div class="thumb">${thumb}<span class="tag">${esc(x.segment||"Video")}</span><div class="play"><div class="play-btn"></div></div></div>
-      <div class="card-body"><h4>${esc(x.title)}</h4><div class="date">${esc(fmtDate(x.date))}</div></div>
-    </article>`;
-  }).join("");
+  grid.innerHTML = list.map(x => cardHTML(x)).join("");
 }
 
 /* ---------- watch ---------- */
+let nextTimer = null;
+function hideNext(){ clearInterval(nextTimer); nextTimer = null; $("#watchNext").classList.remove("show"); }
+function related(id){
+  const cur = state.videos.find(v => v.id === id);
+  const others = byNew(state.videos.filter(v => v.id !== id));
+  return cur ? [...others.filter(v => v.segment === cur.segment), ...others.filter(v => v.segment !== cur.segment)] : others;
+}
+function showNext(id){
+  const n = related(id)[0]; if(!n) return;
+  let left = 6; const el = $("#watchNext");
+  el.innerHTML = `<div style="flex:1;min-width:0"><small>Up next</small><div class="wn-title">${esc(n.title)}</div></div><span class="wn-count"></span><button class="btn btn-primary" data-act="go">Play now</button><button class="btn" data-act="stop">Cancel</button>`;
+  const upd = () => { el.querySelector(".wn-count").textContent = `in ${left}s`; };
+  upd(); el.classList.add("show");
+  clearInterval(nextTimer);
+  nextTimer = setInterval(() => { left--; if(left <= 0){ hideNext(); openWatch(n.id); } else upd(); }, 1000);
+  el.onclick = e => { const a = e.target.closest("[data-act]"); if(!a) return; hideNext(); if(a.dataset.act === "go") openWatch(n.id); };
+}
 function openWatch(id){
   const x = state.videos.find(v=>v.id===id); if(!x) return;
-  const vid = $("#watchVideo"), box = $("#watchYT"), yt = ytId(x.src);
+  hideNext(); state.watchId = id;
+  const vid = $("#watchVideo"), box = $("#watchYT"), yt = ytId(x.src), p = getProgress(id);
   vid.style.display = yt ? "none" : ""; box.style.display = yt ? "" : "none";
-  if(yt){ vid.pause(); vid.removeAttribute("src"); mountYT(box, yt, x.thumb ? resolveSrc(x.thumb) : ytThumb(yt), true); }
-  else{ if(box._yt) box._yt(); box.innerHTML = ""; vid.src = resolveSrc(x.src); vid.poster = x.thumb ? resolveSrc(x.thumb) : ""; }
+  if(yt){
+    vid.pause(); vid.removeAttribute("src");
+    mountYT(box, yt, x.thumb ? resolveSrc(x.thumb) : ytThumb(yt), true, { start: p ? p.t : 0, onPlay: () => countView(id), onProgress: (t,d) => saveProgress(id,t,d), onEnded: () => { clearProgress(id); showNext(id); } });
+  }else{
+    if(box._yt) box._yt(); box.innerHTML = "";
+    vid.src = resolveSrc(x.src); vid.poster = x.thumb ? resolveSrc(x.thumb) : "";
+    hookNative(vid, id, { onEnded: () => showNext(id) });
+  }
+  if(p) toast(`Resuming from ${fmtT(p.t)}`);
+  const views = x.views || 0;
   $("#watchTitle").textContent = x.title;
-  $("#watchMeta").textContent = [x.segment, fmtDate(x.date)].filter(Boolean).join(" · ");
+  $("#watchMeta").textContent = [x.segment, fmtDate(x.date), views ? `${views.toLocaleString()} view${views===1?"":"s"}` : ""].filter(Boolean).join(" · ");
   $("#watchDesc").textContent = x.description || "";
-  openModal("#watchOverlay");
+  const more = related(id).slice(0,4);
+  $("#watchMore").innerHTML = more.length ? `<h4>More to watch</h4><div class="more-grid">${more.map(m => `<div class="mini" data-id="${esc(m.id)}"><div class="t">${thumbHTML(m)}</div><span>${esc(m.title)}</span></div>`).join("")}</div>` : "";
+  const wo = $("#watchOverlay"); openModal("#watchOverlay"); wo.scrollTop = 0; wo.querySelector(".modal").scrollTop = 0;
   history.replaceState(null,"","#watch="+encodeURIComponent(id));
   if(!yt) vid.play().catch(()=>{});
 }
@@ -613,7 +726,7 @@ function openFromHash(){
 function openModal(sel){ $(sel).classList.add("open"); }
 function closeModal(el){
   el.classList.remove("open");
-  if(el.id==="watchOverlay"){ const v=$("#watchVideo"); v.pause(); v.removeAttribute("src"); v.load(); { const bx = $("#watchYT"); if(bx._yt) bx._yt(); bx.innerHTML = ""; } if(location.hash.startsWith("#watch=")) history.replaceState(null,"",location.pathname+location.search); }
+  if(el.id==="watchOverlay"){ hideNext(); const v=$("#watchVideo"); v.onended = v.onplay = v.ontimeupdate = v.onloadedmetadata = null; v.pause(); v.removeAttribute("src"); v.load(); { const bx = $("#watchYT"); if(bx._yt) bx._yt(); bx.innerHTML = ""; } if(location.hash.startsWith("#watch=")) history.replaceState(null,"",location.pathname+location.search); }
 }
 document.querySelectorAll(".overlay").forEach(o=>{
   o.addEventListener("click", e => { if(e.target===o || e.target.closest("[data-close]")) closeModal(o); });
@@ -736,11 +849,34 @@ async function deleteVideo(id){
   }catch(e){ toast("Delete failed: "+(e.message||e)); }
 }
 
+/* ---------- pin as featured ---------- */
+async function pinVideo(id){
+  const x = state.videos.find(v=>v.id===id); if(!x) return;
+  try{
+    if(x.featured){
+      const { error } = await sb.from("videos").update({ featured:false }).eq("id", id); if(error) throw error;
+      toast("Unpinned");
+    }else{
+      let r = await sb.from("videos").update({ featured:false }).eq("featured", true); if(r.error) throw r.error;
+      r = await sb.from("videos").update({ featured:true }).eq("id", id).select(); if(r.error) throw r.error;
+      if(!r.data || !r.data.length) throw new Error("Not allowed — log in as admin.");
+      toast("Pinned as the featured video");
+    }
+    await load();
+  }catch(e){ toast("Couldn't pin: " + (e.message || e)); }
+}
+
 /* ---------- events ---------- */
-$("#grid").addEventListener("click", e => {
+$("#library").addEventListener("click", e => {
   const d = e.target.closest("[data-del]"); if(d){ e.stopPropagation(); deleteVideo(d.dataset.del); return; }
+  const pn = e.target.closest("[data-pin]"); if(pn){ e.stopPropagation(); pinVideo(pn.dataset.pin); return; }
   const c = e.target.closest(".card"); if(c) openWatch(c.dataset.id);
 });
+$("#watchMore").addEventListener("click", e => { const m = e.target.closest(".mini"); if(m) openWatch(m.dataset.id); });
+$("#waBtn").onclick = () => {
+  const x = state.videos.find(v => v.id === state.watchId);
+  window.open("https://wa.me/?text=" + encodeURIComponent((x ? x.title + " — " : "") + location.href), "_blank", "noopener");
+};
 $("#chips").addEventListener("click", e => { const c=e.target.closest(".chip"); if(c){ state.filter=c.dataset.seg; render(); } });
 $("#search").addEventListener("input", e => { state.q=e.target.value; render(); });
 $("#sort").addEventListener("change", e => { state.sort=e.target.value; render(); });
