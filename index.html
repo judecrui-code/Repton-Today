@@ -149,6 +149,28 @@
   .close-x{border:0;background:rgba(255,255,255,.08);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;flex-shrink:0}
   .close-x:hover{background:rgba(255,255,255,.16)}
 
+  /* custom player for YouTube videos (hides YouTube's own interface) */
+  .ytp{position:relative;background:#000;overflow:hidden;user-select:none;-webkit-user-select:none}
+  .ytp-frame,.ytp-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+  .ytp-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:linear-gradient(135deg,var(--navy-600),var(--navy-900));display:block}
+  .ytp.started:not(.ended) .ytp-poster{display:none}
+  .ytp-click{position:absolute;inset:0;cursor:pointer}
+  .ytp-bigplay{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;transition:opacity .2s}
+  .ytp.playing .ytp-bigplay{opacity:0}
+  .ytp-bigplay div{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-2));display:grid;place-items:center;box-shadow:0 10px 34px rgba(30,94,255,.55)}
+  .ytp-bigplay svg{width:30px;height:30px;fill:#fff;margin-left:3px}
+  .ytp-bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:10px;padding:26px 14px 10px;
+      background:linear-gradient(0deg,rgba(3,13,34,.92),rgba(3,13,34,0));transition:opacity .25s;z-index:2}
+  .ytp.playing:not(.active) .ytp-bar{opacity:0}
+  .ytp-btn{background:none;border:0;cursor:pointer;width:32px;height:32px;display:grid;place-items:center;border-radius:8px;flex-shrink:0}
+  .ytp-btn:hover{background:rgba(255,255,255,.12)}
+  .ytp-btn svg{width:20px;height:20px;fill:#fff}
+  .ytp-t{font-size:12px;color:var(--ice);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ytp-seek{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:99px;background:rgba(255,255,255,.22);outline:none;cursor:pointer;
+      background-image:linear-gradient(90deg,var(--sky),var(--blue-2));background-repeat:no-repeat;background-size:0% 100%}
+  .ytp-seek::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(63,123,255,.5)}
+  .ytp-seek::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:#fff}
+  .ytp:fullscreen{width:100vw;height:100vh;aspect-ratio:auto;border-radius:0}
   footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-size:13px}
   footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);z-index:80;
@@ -236,7 +258,7 @@
 <div class="overlay" id="watchOverlay">
   <div class="modal wide">
     <video class="watch-video" id="watchVideo" controls playsinline></video>
-    <iframe class="watch-video" id="watchFrame" style="display:none;border:0" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <div class="watch-video" id="watchYT" style="display:none"></div>
     <div class="watch-info">
       <div>
         <h3 id="watchTitle"></h3>
@@ -373,6 +395,101 @@ function ytId(url){
   const m = String(url||"").match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/|v\/))([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 }
+let ytApiPromise;
+function loadYT(){
+  if(window.YT && window.YT.Player) return Promise.resolve();
+  if(!ytApiPromise) ytApiPromise = new Promise(res => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { if(prev) prev(); res(); };
+    const t = document.createElement("script"); t.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(t);
+  });
+  return ytApiPromise;
+}
+const fmtT = n => { n = Math.max(0, Math.floor(n||0)); const h = Math.floor(n/3600), m = Math.floor(n%3600/60), x = n%60; return (h ? h+":"+String(m).padStart(2,"0") : m)+":"+String(x).padStart(2,"0"); };
+const ICON = {
+  play:'<svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+  vol:'<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>',
+  mute:'<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9zm13.6 3 2.4-2.4-1.4-1.4-2.4 2.4-2.4-2.4-1.4 1.4 2.4 2.4-2.4 2.4 1.4 1.4 2.4-2.4 2.4 2.4 1.4-1.4z"/></svg>',
+  fs:'<svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg>'
+};
+/* Mounts a YouTube video inside `box` with our own controls, so it behaves like a normal video on the site. */
+function mountYT(box, id, poster, autoplay){
+  if(box._yt) box._yt();
+  box.classList.add("ytp");
+  box.innerHTML = `<div class="ytp-frame"><div></div></div>
+    <img class="ytp-poster" src="${esc(poster)}" alt="">
+    <div class="ytp-click"></div>
+    <div class="ytp-bigplay"><div>${ICON.play}</div></div>
+    <div class="ytp-bar">
+      <button class="ytp-btn" data-a="pp" aria-label="Play / pause">${ICON.play}</button>
+      <span class="ytp-t" data-a="cur">0:00</span>
+      <input class="ytp-seek" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek">
+      <span class="ytp-t" data-a="dur">0:00</span>
+      <button class="ytp-btn" data-a="mute" aria-label="Mute">${ICON.vol}</button>
+      <button class="ytp-btn" data-a="fs" aria-label="Fullscreen">${ICON.fs}</button>
+    </div>`;
+  const q = sel => box.querySelector(sel);
+  const seek = q(".ytp-seek");
+  let player = null, ready = false, dead = false, timer = null, idle = null;
+  const setPP = playing => { q('[data-a="pp"]').innerHTML = playing ? ICON.pause : ICON.play; box.classList.toggle("playing", playing); };
+  function onState(e){
+    const S = YT.PlayerState;
+    if(e.data === S.PLAYING){ box.classList.add("started"); box.classList.remove("ended"); setPP(true); }
+    else if(e.data === S.PAUSED){ setPP(false); }
+    else if(e.data === S.ENDED){ box.classList.add("ended"); setPP(false); }
+  }
+  function tick(){
+    if(!ready || !player || !player.getDuration) return;
+    const d = player.getDuration() || 0, c = player.getCurrentTime() || 0;
+    q('[data-a="cur"]').textContent = fmtT(c); q('[data-a="dur"]').textContent = fmtT(d);
+    if(d && document.activeElement !== seek){ seek.value = Math.round(c/d*1000); }
+    seek.style.backgroundSize = (seek.value/10)+"% 100%";
+  }
+  function init(play){
+    loadYT().then(() => {
+      if(dead) return;
+      player = new YT.Player(q(".ytp-frame > div"), {
+        host: "https://www.youtube-nocookie.com", videoId: id,
+        playerVars: { controls:0, disablekb:1, modestbranding:1, rel:0, playsinline:1, iv_load_policy:3, fs:0, cc_load_policy:0, autoplay: play?1:0 },
+        events: { onReady: e => { ready = true; if(play) e.target.playVideo(); tick(); }, onStateChange: onState }
+      });
+      timer = setInterval(tick, 250);
+    });
+  }
+  function toggle(){
+    if(!player){ init(true); return; }
+    if(!ready) return;
+    const st = player.getPlayerState();
+    if(st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING) player.pauseVideo();
+    else { if(st === YT.PlayerState.ENDED) player.seekTo(0, true); player.playVideo(); }
+  }
+  function fullscreen(){
+    if(document.fullscreenElement === box) document.exitFullscreen();
+    else (box.requestFullscreen || box.webkitRequestFullscreen || (()=>{})).call(box);
+  }
+  function wake(){ box.classList.add("active"); clearTimeout(idle); idle = setTimeout(() => box.classList.remove("active"), 2500); }
+  q(".ytp-click").addEventListener("click", () => { toggle(); wake(); });
+  q(".ytp-click").addEventListener("dblclick", fullscreen);
+  box.addEventListener("mousemove", wake); box.addEventListener("touchstart", wake, {passive:true});
+  q('[data-a="pp"]').onclick = toggle;
+  q('[data-a="fs"]').onclick = fullscreen;
+  q('[data-a="mute"]').onclick = () => {
+    if(!ready) return;
+    const m = player.isMuted(); m ? player.unMute() : player.mute();
+    q('[data-a="mute"]').innerHTML = m ? ICON.vol : ICON.mute;
+  };
+  seek.addEventListener("input", () => {
+    if(!ready) return;
+    const d = player.getDuration() || 0; player.seekTo(seek.value/1000*d, true); seek.style.backgroundSize = (seek.value/10)+"% 100%";
+  });
+  box._yt = () => {
+    dead = true; clearInterval(timer); clearTimeout(idle);
+    try{ if(player && player.destroy) player.destroy(); }catch(e){}
+    box._yt = null; box.classList.remove("ytp","playing","started","ended","active"); box.innerHTML = "";
+  };
+  if(autoplay) init(true);
+}
 const ytEmbed = id => `https://www.youtube-nocookie.com/embed/${id}?rel=0&playsinline=1`;
 const ytThumb = id => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 
@@ -413,13 +530,13 @@ function render(){
     if(shell.dataset.id !== newest.id){
       shell.dataset.id = newest.id;
       const yt = ytId(newest.src);
-      shell.innerHTML = yt
-        ? `<iframe src="${esc(ytEmbed(yt))}" title="${esc(newest.title)}" style="width:100%;height:100%;border:0;display:block" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`
-        : `<video controls playsinline preload="metadata" ${newest.thumb?`poster="${esc(resolveSrc(newest.thumb))}"`:""} src="${esc(src)}${newest.thumb?"":"#t=0.5"}"></video>`;
+      if(shell._yt) shell._yt();
+      if(yt) mountYT(shell, yt, newest.thumb ? resolveSrc(newest.thumb) : ytThumb(yt), false);
+      else shell.innerHTML = `<video controls playsinline preload="metadata" ${newest.thumb?`poster="${esc(resolveSrc(newest.thumb))}"`:""} src="${esc(src)}${newest.thumb?"":"#t=0.5"}"></video>`;
     }
     $("#featureMeta").innerHTML = `<div class="sub">Latest · ${esc(newest.segment||"")} · ${esc(fmtDate(newest.date))}</div><h2>${esc(newest.title)}</h2>`;
   }else{
-    shell.dataset.id = "";
+    shell.dataset.id = ""; if(shell._yt) shell._yt();
     shell.innerHTML = `<div class="empty-player"><div><div class="big">No episodes yet</div>The team hasn't uploaded anything — check back soon.</div></div>`;
     $("#featureMeta").innerHTML = "";
   }
@@ -452,10 +569,10 @@ function render(){
 /* ---------- watch ---------- */
 function openWatch(id){
   const x = state.videos.find(v=>v.id===id); if(!x) return;
-  const vid = $("#watchVideo"), frame = $("#watchFrame"), yt = ytId(x.src);
-  vid.style.display = yt ? "none" : ""; frame.style.display = yt ? "" : "none";
-  if(yt){ vid.pause(); vid.removeAttribute("src"); frame.src = ytEmbed(yt) + "&autoplay=1"; }
-  else{ frame.removeAttribute("src"); vid.src = resolveSrc(x.src); vid.poster = x.thumb ? resolveSrc(x.thumb) : ""; }
+  const vid = $("#watchVideo"), box = $("#watchYT"), yt = ytId(x.src);
+  vid.style.display = yt ? "none" : ""; box.style.display = yt ? "" : "none";
+  if(yt){ vid.pause(); vid.removeAttribute("src"); mountYT(box, yt, x.thumb ? resolveSrc(x.thumb) : ytThumb(yt), true); }
+  else{ if(box._yt) box._yt(); box.innerHTML = ""; vid.src = resolveSrc(x.src); vid.poster = x.thumb ? resolveSrc(x.thumb) : ""; }
   $("#watchTitle").textContent = x.title;
   $("#watchMeta").textContent = [x.segment, fmtDate(x.date)].filter(Boolean).join(" · ");
   $("#watchDesc").textContent = x.description || "";
@@ -472,7 +589,7 @@ function openFromHash(){
 function openModal(sel){ $(sel).classList.add("open"); }
 function closeModal(el){
   el.classList.remove("open");
-  if(el.id==="watchOverlay"){ const v=$("#watchVideo"); v.pause(); v.removeAttribute("src"); v.load(); $("#watchFrame").removeAttribute("src"); if(location.hash.startsWith("#watch=")) history.replaceState(null,"",location.pathname+location.search); }
+  if(el.id==="watchOverlay"){ const v=$("#watchVideo"); v.pause(); v.removeAttribute("src"); v.load(); { const bx = $("#watchYT"); if(bx._yt) bx._yt(); bx.innerHTML = ""; } if(location.hash.startsWith("#watch=")) history.replaceState(null,"",location.pathname+location.search); }
 }
 document.querySelectorAll(".overlay").forEach(o=>{
   o.addEventListener("click", e => { if(e.target===o || e.target.closest("[data-close]")) closeModal(o); });
