@@ -112,6 +112,9 @@
   body.authed .card .pin{display:block}
   .card .pin.on{background:var(--gold);color:#fff}
   .card-body .date .feat{color:var(--gold);font-weight:700}
+  .card .edit{position:absolute;top:10px;right:82px;z-index:3;display:none;width:30px;height:30px;border-radius:8px;
+      border:1px solid rgba(11,37,69,.35);background:rgba(255,255,255,.95);color:var(--ink);cursor:pointer;font-size:15px;line-height:1}
+  body.authed .card .edit{display:block}
   .strip{margin-bottom:42px}
   .sec-title{font:700 30px/1 'Cormorant Garamond',Georgia,serif;color:var(--ink)}
   .prog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.35)}
@@ -180,7 +183,11 @@
   .ytp-btn:hover{background:rgba(255,255,255,.12)}
   .ytp-btn svg{width:20px;height:20px;fill:#fff}
   .ytp-t{font-size:12px;color:var(--ice);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .ytp-seek{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:99px;background:rgba(255,255,255,.22);outline:none;cursor:pointer;
+  .ytp-sw{position:relative;flex:1;display:flex;align-items:center}
+  .ytp-ticks{position:absolute;left:0;right:0;top:50%;height:0;pointer-events:none}
+  .ytp-ticks i{position:absolute;top:-6px;width:3px;height:12px;margin-left:-1px;background:var(--gold-2);border-radius:2px;box-shadow:0 0 0 1px rgba(11,37,69,.6)}
+  .ytp-chap{font-size:12px;color:var(--gold-2);font-weight:600;white-space:nowrap;max-width:26%;overflow:hidden;text-overflow:ellipsis}
+  .ytp-seek{width:100%;flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:99px;background:rgba(255,255,255,.22);outline:none;cursor:pointer;
       background-image:linear-gradient(90deg,var(--gold-2),var(--gold));background-repeat:no-repeat;background-size:0% 100%}
   .ytp-seek::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(217,184,102,.55)}
   .ytp-seek::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:#fff}
@@ -191,6 +198,14 @@
   .watch-next small{color:var(--gold-2);letter-spacing:.14em;text-transform:uppercase;font-weight:600;font-size:11px}
   .wn-title{font:700 20px/1.2 'Cormorant Garamond',Georgia,serif;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .wn-count{color:var(--gold-2);font-weight:600;font-size:14px;white-space:nowrap}
+  .chaps{display:none;padding:4px 26px 22px}
+  .chaps.show{display:block}
+  .chaps h4{font:700 22px 'Cormorant Garamond',Georgia,serif;margin-bottom:12px;color:#fff}
+  .chap-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+  .chap{display:flex;gap:12px;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.04);cursor:pointer;text-align:left;color:var(--text);font-weight:600;font-size:14px;transition:.15s}
+  .chap:hover{border-color:var(--gold-2)}
+  .chap b{font-variant-numeric:tabular-nums;color:var(--gold-2);min-width:46px;font-size:13px}
+  .chap.active{border-color:var(--gold-2);background:rgba(217,184,102,.14)}
   .more{padding:0 26px 26px}
   .more h4{font:700 22px 'Cormorant Garamond',Georgia,serif;margin-bottom:12px;color:#fff}
   .more-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
@@ -320,7 +335,30 @@
         <button class="close-x" data-close>✕</button>
       </div>
     </div>
+    <div class="chaps" id="watchChaps"></div>
     <div class="more" id="watchMore"></div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <h3>Edit video</h3>
+    <p class="hint">Change the details, or split the video into segments so viewers can jump straight to each part.</p>
+    <label for="edTitle">Title</label>
+    <input class="field" id="edTitle">
+    <label for="edSegment">Category</label>
+    <select class="field" id="edSegment"></select>
+    <label for="edDesc">Description</label>
+    <textarea class="field" id="edDesc"></textarea>
+    <label for="edChaps">Segments inside this video</label>
+    <textarea class="field" id="edChaps" style="min-height:130px" placeholder="0:00 Intro&#10;3:20 Weekend Update&#10;12:05 Boxing&#10;20:40 Courtroom"></textarea>
+    <p class="hint" style="margin:6px 0 0;font-size:12px">One per line: the time it starts, then a name. Times like 3:20 or 1:02:30.</p>
+    <div class="msg" id="edMsg"></div>
+    <div class="modal-actions">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn btn-primary" id="edSave">Save</button>
+    </div>
   </div>
 </div>
 
@@ -380,6 +418,9 @@
     <div id="srcLink" style="margin-top:12px;display:none">
       <input class="field" id="upLink" placeholder="https://youtu.be/… or https://github.com/…">
     </div>
+    <label for="upChaps">Segments inside this video (optional)</label>
+    <textarea class="field" id="upChaps" style="min-height:96px" placeholder="0:00 Intro&#10;3:20 Weekend Update&#10;12:05 Boxing&#10;20:40 Courtroom"></textarea>
+    <p class="hint" style="margin:6px 0 0;font-size:12px">One per line: the time it starts, then a name. You can also add these later with ✎.</p>
     <label for="upThumb">Thumbnail link (optional — YouTube links use their own)</label>
     <input class="field" id="upThumb" placeholder="Leave blank to use a frame from the video">
 
@@ -505,7 +546,8 @@ function mountYT(box, id, poster, autoplay, hooks){
     <div class="ytp-bar">
       <button class="ytp-btn" data-a="pp" aria-label="Play / pause">${ICON.play}</button>
       <span class="ytp-t" data-a="cur">0:00</span>
-      <input class="ytp-seek" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek">
+      <span class="ytp-chap" data-a="chap"></span>
+      <div class="ytp-sw"><input class="ytp-seek" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek"><div class="ytp-ticks"></div></div>
       <span class="ytp-t" data-a="dur">0:00</span>
       <button class="ytp-btn" data-a="mute" aria-label="Mute">${ICON.vol}</button>
       <button class="ytp-btn" data-a="fs" aria-label="Fullscreen">${ICON.fs}</button>
@@ -513,7 +555,8 @@ function mountYT(box, id, poster, autoplay, hooks){
   loadYT();   // warm up YouTube's script so the first click starts quickly
   const q = sel => box.querySelector(sel);
   const seek = q(".ytp-seek");
-  let player = null, ready = false, dead = false, timer = null, idle = null, playedOnce = false, lastSave = 0;
+  let player = null, ready = false, dead = false, timer = null, idle = null, playedOnce = false, lastSave = 0, ticksDone = false;
+  const chaps = hooks.chapters || [];
   const setPP = playing => { q('[data-a="pp"]').innerHTML = playing ? ICON.pause : ICON.play; box.classList.toggle("playing", playing); };
   function onState(e){
     const S = YT.PlayerState;
@@ -528,6 +571,10 @@ function mountYT(box, id, poster, autoplay, hooks){
     q('[data-a="cur"]').textContent = fmtT(c); q('[data-a="dur"]').textContent = fmtT(d);
     if(d && document.activeElement !== seek){ seek.value = Math.round(c/d*1000); }
     seek.style.backgroundSize = (seek.value/10)+"% 100%";
+    if(chaps.length && d){
+      if(!ticksDone){ ticksDone = true; q(".ytp-ticks").innerHTML = chaps.filter(k => k.t > 0 && k.t < d).map(k => `<i style="left:${k.t/d*100}%"></i>`).join(""); }
+      let cur = null; chaps.forEach(k => { if(c >= k.t) cur = k; }); q('[data-a="chap"]').textContent = cur ? cur.title : "";
+    }
     if(hooks.onProgress && box.classList.contains("playing") && Date.now() - lastSave > 4000){ lastSave = Date.now(); hooks.onProgress(c, d); }
   }
   function init(play){
@@ -536,7 +583,7 @@ function mountYT(box, id, poster, autoplay, hooks){
       player = new YT.Player(q(".ytp-frame > div"), {
         host: "https://www.youtube-nocookie.com", videoId: id,
         playerVars: { controls:0, disablekb:1, modestbranding:1, rel:0, playsinline:1, iv_load_policy:3, fs:0, cc_load_policy:0, autoplay: play?1:0, start: Math.floor(hooks.start || 0) },
-        events: { onReady: e => { ready = true; try{ e.target.unloadModule && e.target.unloadModule("captions"); }catch(_){} if(play) e.target.playVideo(); tick(); }, onStateChange: onState }
+        events: { onReady: e => { ready = true; if(hooks.pending != null){ e.target.seekTo(hooks.pending, true); hooks.pending = null; } try{ e.target.unloadModule && e.target.unloadModule("captions"); }catch(_){} if(play) e.target.playVideo(); tick(); }, onStateChange: onState }
       });
       timer = setInterval(tick, 250);
     });
@@ -567,10 +614,16 @@ function mountYT(box, id, poster, autoplay, hooks){
     if(!ready) return;
     const d = player.getDuration() || 0; player.seekTo(seek.value/1000*d, true); seek.style.backgroundSize = (seek.value/10)+"% 100%";
   });
+  box._seek = t => {
+    if(!player){ hooks.start = t; box.classList.add("loading"); init(true); return; }
+    if(!ready){ hooks.pending = t; return; }
+    player.seekTo(t, true); player.playVideo();
+  };
+  box._time = () => (ready && player && player.getCurrentTime) ? player.getCurrentTime() : (hooks.start || 0);
   box._yt = () => {
     dead = true; clearInterval(timer); clearTimeout(idle);
     try{ if(player && player.destroy) player.destroy(); }catch(e){}
-    box._yt = null; box.classList.remove("ytp","playing","started","ended","active"); box.innerHTML = "";
+    box._yt = null; box._seek = null; box._time = null; box.classList.remove("ytp","playing","started","ended","active"); box.innerHTML = "";
   };
   if(autoplay) init(true);
 }
@@ -596,6 +649,19 @@ function sorted(list){
   return l;
 }
 
+/* ---------- segments inside a video ("chapters") ---------- */
+const toSec = str => { const p = str.split(":").map(Number); return p.length === 3 ? p[0]*3600 + p[1]*60 + p[2] : p[0]*60 + p[1]; };
+function parseChapters(text){
+  const out = [];
+  (text || "").split(/\n/).map(l => l.trim()).filter(Boolean).forEach(l => {
+    const m = l.match(/^(\d{1,2}(?::\d{2}){1,2})\s*[-–—:]?\s*(.+)$/);
+    if(!m) throw new Error(`Couldn't read “${l}” — write it like “3:20 Weekend Update”.`);
+    out.push({ t: toSec(m[1]), title: m[2].trim() });
+  });
+  return out.sort((a,b) => a.t - b.t);
+}
+const chaptersToText = ch => (ch || []).map(c => `${fmtT(c.t)} ${c.title}`).join("\n");
+
 const byNew = list => [...list].sort((a,b)=>(b.date||"").localeCompare(a.date||"") || (b.added||0)-(a.added||0));
 function thumbHTML(x){
   const yt = ytId(x.src);
@@ -606,7 +672,8 @@ function thumbHTML(x){
 function cardHTML(x, opts = {}){
   const views = x.views || 0;
   const meta = [esc(fmtDate(x.date)), views ? `${views.toLocaleString()} view${views===1?"":"s"}` : "", x.featured ? `<span class="feat">★ Featured</span>` : ""].filter(Boolean).join(" · ");
-  const admin = opts.plain ? "" : `<button class="pin ${x.featured?"on":""}" data-pin="${esc(x.id)}" title="${x.featured?"Unpin from featured":"Pin as featured"}">★</button>
+  const admin = opts.plain ? "" : `<button class="edit" data-edit="${esc(x.id)}" title="Edit details & segments">✎</button>
+      <button class="pin ${x.featured?"on":""}" data-pin="${esc(x.id)}" title="${x.featured?"Unpin from featured":"Pin as featured"}">★</button>
       <button class="del" data-del="${esc(x.id)}" title="Delete video">✕</button>`;
   const prog = opts.progress ? `<div class="prog"><i style="width:${Math.min(100, Math.round(opts.progress.t / opts.progress.d * 100))}%"></i></div>` : "";
   return `<article class="card" data-id="${esc(x.id)}">
@@ -637,7 +704,7 @@ function render(){
       shell.dataset.id = feat.id;
       const yt = ytId(feat.src), prog = getProgress(feat.id);
       if(shell._yt) shell._yt();
-      if(yt) mountYT(shell, yt, feat.thumb ? resolveSrc(feat.thumb) : ytThumb(yt), false, { start: prog ? prog.t : 0, onPlay: () => countView(feat.id), onProgress: (t,d) => saveProgress(feat.id,t,d), onEnded: () => clearProgress(feat.id) });
+      if(yt) mountYT(shell, yt, feat.thumb ? resolveSrc(feat.thumb) : ytThumb(yt), false, { chapters: feat.chapters || [], start: prog ? prog.t : 0, onPlay: () => countView(feat.id), onProgress: (t,d) => saveProgress(feat.id,t,d), onEnded: () => clearProgress(feat.id) });
       else{
         shell.innerHTML = `<video controls playsinline preload="metadata" ${feat.thumb?`poster="${esc(resolveSrc(feat.thumb))}"`:""} src="${esc(src)}${feat.thumb?"":"#t=0.5"}"></video>`;
         hookNative(shell.querySelector("video"), feat.id);
@@ -693,6 +760,24 @@ function showNext(id){
   nextTimer = setInterval(() => { left--; if(left <= 0){ hideNext(); openWatch(n.id); } else upd(); }, 1000);
   el.onclick = e => { const a = e.target.closest("[data-act]"); if(!a) return; hideNext(); if(a.dataset.act === "go") openWatch(n.id); };
 }
+let chapTimer = null;
+function renderChapters(x){
+  clearInterval(chapTimer);
+  const el = $("#watchChaps"), ch = x.chapters || [];
+  if(!ch.length){ el.classList.remove("show"); el.innerHTML = ""; return; }
+  el.innerHTML = `<h4>Segments</h4><div class="chap-list">${ch.map((c,i) => `<button class="chap" data-t="${c.t}"><b>${fmtT(c.t)}</b><span>${esc(c.title)}</span></button>`).join("")}</div>`;
+  el.classList.add("show");
+  chapTimer = setInterval(() => {
+    const box = $("#watchYT"), t = (box._time && box.style.display !== "none") ? box._time() : $("#watchVideo").currentTime;
+    let idx = -1; ch.forEach((c,i) => { if(t >= c.t) idx = i; });
+    el.querySelectorAll(".chap").forEach((b,i) => b.classList.toggle("active", i === idx));
+  }, 500);
+}
+function seekWatch(t){
+  const box = $("#watchYT"), vid = $("#watchVideo");
+  if(box._seek && box.style.display !== "none") box._seek(t);
+  else { vid.currentTime = t; vid.play().catch(()=>{}); }
+}
 function openWatch(id){
   const x = state.videos.find(v=>v.id===id); if(!x) return;
   hideNext(); state.watchId = id;
@@ -700,7 +785,7 @@ function openWatch(id){
   vid.style.display = yt ? "none" : ""; box.style.display = yt ? "" : "none";
   if(yt){
     vid.pause(); vid.removeAttribute("src");
-    mountYT(box, yt, x.thumb ? resolveSrc(x.thumb) : ytThumb(yt), true, { start: p ? p.t : 0, onPlay: () => countView(id), onProgress: (t,d) => saveProgress(id,t,d), onEnded: () => { clearProgress(id); showNext(id); } });
+    mountYT(box, yt, x.thumb ? resolveSrc(x.thumb) : ytThumb(yt), true, { chapters: x.chapters || [], start: p ? p.t : 0, onPlay: () => countView(id), onProgress: (t,d) => saveProgress(id,t,d), onEnded: () => { clearProgress(id); showNext(id); } });
   }else{
     if(box._yt) box._yt(); box.innerHTML = "";
     vid.src = resolveSrc(x.src); vid.poster = x.thumb ? resolveSrc(x.thumb) : "";
@@ -711,6 +796,7 @@ function openWatch(id){
   $("#watchTitle").textContent = x.title;
   $("#watchMeta").textContent = [x.segment, fmtDate(x.date), views ? `${views.toLocaleString()} view${views===1?"":"s"}` : ""].filter(Boolean).join(" · ");
   $("#watchDesc").textContent = x.description || "";
+  renderChapters(x);
   const more = related(id).slice(0,4);
   $("#watchMore").innerHTML = more.length ? `<h4>More to watch</h4><div class="more-grid">${more.map(m => `<div class="mini" data-id="${esc(m.id)}"><div class="t">${thumbHTML(m)}</div><span>${esc(m.title)}</span></div>`).join("")}</div>` : "";
   const wo = $("#watchOverlay"); openModal("#watchOverlay"); wo.scrollTop = 0; wo.querySelector(".modal").scrollTop = 0;
@@ -726,7 +812,7 @@ function openFromHash(){
 function openModal(sel){ $(sel).classList.add("open"); }
 function closeModal(el){
   el.classList.remove("open");
-  if(el.id==="watchOverlay"){ hideNext(); const v=$("#watchVideo"); v.onended = v.onplay = v.ontimeupdate = v.onloadedmetadata = null; v.pause(); v.removeAttribute("src"); v.load(); { const bx = $("#watchYT"); if(bx._yt) bx._yt(); bx.innerHTML = ""; } if(location.hash.startsWith("#watch=")) history.replaceState(null,"",location.pathname+location.search); }
+  if(el.id==="watchOverlay"){ hideNext(); clearInterval(chapTimer); const v=$("#watchVideo"); v.onended = v.onplay = v.ontimeupdate = v.onloadedmetadata = null; v.pause(); v.removeAttribute("src"); v.load(); { const bx = $("#watchYT"); if(bx._yt) bx._yt(); bx.innerHTML = ""; } if(location.hash.startsWith("#watch=")) history.replaceState(null,"",location.pathname+location.search); }
 }
 document.querySelectorAll(".overlay").forEach(o=>{
   o.addEventListener("click", e => { if(e.target===o || e.target.closest("[data-close]")) closeModal(o); });
@@ -804,6 +890,7 @@ $("#publishBtn").onclick = async () => {
   btn.disabled = true; msg.className="msg";
   let uploadedPath = null;
   try{
+    const chs = parseChapters($("#upChaps").value);
     const id = slug(title) + "-" + Date.now().toString(36);
     let src;
     if(state.src==="file"){
@@ -817,7 +904,7 @@ $("#publishBtn").onclick = async () => {
       src = $("#upLink").value.trim();
     }
     setProgress(80); msg.textContent = "Adding to the library…";
-    const entry = { id, title, segment: $("#upSegment").value, date: $("#upDate").value || null, description: $("#upDesc").value.trim() || null, src, thumb: $("#upThumb").value.trim() || null, added: Date.now() };
+    const entry = { id, title, segment: $("#upSegment").value, date: $("#upDate").value || null, description: $("#upDesc").value.trim() || null, src, thumb: $("#upThumb").value.trim() || null, chapters: chs.length ? chs : null, added: Date.now() };
     const { error } = await sb.from("videos").insert(entry);
     if(error) throw error;
     setProgress(100); msg.className="msg ok"; msg.textContent = "Published! It's live now.";
@@ -832,7 +919,7 @@ $("#publishBtn").onclick = async () => {
 };
 function resetUpload(){
   state.file=null; fileInput.value="";
-  ["#upTitle","#upDesc","#upLink","#upThumb"].forEach(s=>$(s).value="");
+  ["#upTitle","#upDesc","#upLink","#upThumb","#upChaps"].forEach(s=>$(s).value="");
   drop.innerHTML = `<b>Choose a video</b> or drag it here<br><small>MP4 recommended · under 50 MB</small>`;
 }
 
@@ -848,6 +935,29 @@ async function deleteVideo(id){
     toast("Video deleted"); await load();
   }catch(e){ toast("Delete failed: "+(e.message||e)); }
 }
+
+/* ---------- edit video ---------- */
+function openEdit(id){
+  const x = state.videos.find(v => v.id === id); if(!x) return;
+  state.editId = id;
+  const cats = [...new Set(["Full Episode","Weekend Update","Boxing","Courtroom","Clips","Behind the Scenes", ...state.videos.map(v => v.segment).filter(Boolean)])];
+  $("#edSegment").innerHTML = cats.map(c => `<option ${c===x.segment?"selected":""}>${esc(c)}</option>`).join("");
+  $("#edTitle").value = x.title || ""; $("#edDesc").value = x.description || ""; $("#edChaps").value = chaptersToText(x.chapters);
+  $("#edMsg").textContent = ""; openModal("#editOverlay");
+}
+$("#edSave").onclick = async () => {
+  const msg = $("#edMsg"), id = state.editId, title = $("#edTitle").value.trim();
+  if(!title){ msg.className = "msg err"; msg.textContent = "Give it a title."; return; }
+  $("#edSave").disabled = true; msg.className = "msg"; msg.textContent = "Saving…";
+  try{
+    const chs = parseChapters($("#edChaps").value);
+    const { data, error } = await sb.from("videos").update({ title, segment: $("#edSegment").value, description: $("#edDesc").value.trim() || null, chapters: chs.length ? chs : null }).eq("id", id).select();
+    if(error) throw error;
+    if(!data || !data.length) throw new Error("Not saved — make sure you're logged in as admin.");
+    closeModal($("#editOverlay")); toast("Saved"); await load();
+  }catch(e){ msg.className = "msg err"; msg.textContent = e.message || String(e); }
+  finally{ $("#edSave").disabled = false; }
+};
 
 /* ---------- pin as featured ---------- */
 async function pinVideo(id){
@@ -869,9 +979,11 @@ async function pinVideo(id){
 /* ---------- events ---------- */
 $("#library").addEventListener("click", e => {
   const d = e.target.closest("[data-del]"); if(d){ e.stopPropagation(); deleteVideo(d.dataset.del); return; }
+  const ed = e.target.closest("[data-edit]"); if(ed){ e.stopPropagation(); openEdit(ed.dataset.edit); return; }
   const pn = e.target.closest("[data-pin]"); if(pn){ e.stopPropagation(); pinVideo(pn.dataset.pin); return; }
   const c = e.target.closest(".card"); if(c) openWatch(c.dataset.id);
 });
+$("#watchChaps").addEventListener("click", e => { const b = e.target.closest(".chap"); if(b) seekWatch(Number(b.dataset.t)); });
 $("#watchMore").addEventListener("click", e => { const m = e.target.closest(".mini"); if(m) openWatch(m.dataset.id); });
 $("#waBtn").onclick = () => {
   const x = state.videos.find(v => v.id === state.watchId);
