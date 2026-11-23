@@ -178,7 +178,7 @@
       <div class="team-pill" id="teamPill"><img id="teamAvatar" alt=""><span id="teamName"></span></div>
       <button class="btn btn-primary only-team" id="openUpload">+ Upload</button>
       <button class="btn only-team" id="logoutBtn">Log out</button>
-      <button class="btn only-guest" id="openLogin">Team login</button>
+      <button class="btn only-guest" id="openLogin">Admin login</button>
     </div>
   </div>
 </nav>
@@ -252,8 +252,8 @@
 <!-- LOGIN MODAL -->
 <div class="overlay" id="loginOverlay">
   <div class="modal">
-    <h3>Team login</h3>
-    <p class="hint">Only Repton Today team members can upload. Log in with a GitHub access token that has write access to the site's repository. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a token</a> — pick this repo and give it <b>Contents: Read and write</b>.</p>
+    <h3>Admin login</h3>
+    <p class="hint">Only the site owner can upload. Log in with a GitHub access token that has write access to this repository. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a token</a> — pick this repo and give it <b>Contents: Read and write</b>.</p>
     <label for="tokenInput">GitHub access token</label>
     <input class="field" id="tokenInput" type="password" placeholder="github_pat_…" autocomplete="off">
     <label style="display:flex;gap:8px;align-items:center;font-weight:500;color:var(--muted)">
@@ -498,7 +498,7 @@ document.addEventListener("keydown", e => { if(e.key==="Escape") document.queryS
 async function login(token, persist){
   state.token = token;
   const repo = await gh("");                       // checks token can see the repo
-  if(!repo.permissions || !repo.permissions.push){ state.token=null; throw new Error("This account isn't on the Repton Today team (no write access to the repo)."); }
+  if(!repo.permissions || !repo.permissions.push){ state.token=null; throw new Error("This account can't upload (no write access to the repo)."); }
   let user = null;
   try{ const r = await fetch("https://api.github.com/user",{headers:{Authorization:`Bearer ${token}`}}); if(r.ok) user = await r.json(); }catch(e){}
   state.user = user;

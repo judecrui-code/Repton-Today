@@ -19,7 +19,7 @@ A blue, single-page video site for the Repton Today podcast. Anyone can watch; o
 
 ## Who can log in
 
-Login = having **write access to the repo**. Add each Repton Today team member under repo → Settings → Collaborators. Nobody else can upload, even if they find the login button.
+Login = having **write access to the repo**. As the repo owner, that is only you unless you add collaborators. Nobody else can upload, even if they find the login button.
 
 Each team member makes their own token once:
 1. Go to https://github.com/settings/personal-access-tokens/new
