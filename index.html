@@ -704,8 +704,9 @@ async function deleteVideo(id){
   const x = state.videos.find(v=>v.id===id); if(!x) return;
   if(!confirm(`Delete "${x.title}"?`)) return;
   try{
-    const { error } = await sb.from("videos").delete().eq("id", id);
+    const { data: gone, error } = await sb.from("videos").delete().eq("id", id).select();
     if(error) throw error;
+    if(!gone || !gone.length) throw new Error("Nothing was deleted — make sure you're logged in as admin.");
     if(x.src && !/^https?:/i.test(x.src)) await sb.storage.from(CONFIG.bucket).remove([x.src]);
     toast("Video deleted"); await load();
   }catch(e){ toast("Delete failed: "+(e.message||e)); }
