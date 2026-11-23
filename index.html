@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Repton Today — Watch the Podcast</title>
+<meta name="description" content="Watch every episode and segment of the Repton Today podcast.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-900:#030d22; --navy-800:#061a3a; --navy-700:#0a2552; --navy-600:#10336e;
+    --blue:#1e5eff; --blue-2:#3f7bff; --sky:#5ab8ff; --ice:#d9ecff;
+    --text:#eef5ff; --muted:#9db4d8; --line:rgba(120,170,255,.16);
+    --danger:#ff5a6e; --ok:#3ee0a1;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:Inter,system-ui,sans-serif;color:var(--text);
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(30,94,255,.35), transparent 60%),
+      radial-gradient(900px 500px at -10% 30%, rgba(90,184,255,.14), transparent 60%),
+      var(--navy-900);
+    min-height:100vh;line-height:1.5;
+  }
+  a{color:inherit}
+  button,input,select,textarea{font:inherit;color:inherit}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+
+  /* NAV */
+  nav{position:sticky;top:0;z-index:40;backdrop-filter:blur(14px);
+      background:rgba(3,13,34,.72);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;gap:20px;height:68px}
+  .logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+  .logo-mark{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;
+      background:linear-gradient(135deg,var(--blue),var(--sky));
+      font-family:'Bricolage Grotesque';font-weight:800;font-size:18px;color:#fff;
+      box-shadow:0 6px 20px rgba(30,94,255,.45)}
+  .logo-text{font-family:'Bricolage Grotesque';font-weight:800;font-size:20px;letter-spacing:-.02em}
+  .logo-text span{color:var(--sky)}
+  .nav-links{display:flex;gap:6px;margin-left:auto;align-items:center}
+  .btn{border:1px solid var(--line);background:rgba(255,255,255,.04);padding:9px 16px;
+      border-radius:999px;cursor:pointer;font-weight:600;font-size:14px;transition:.18s;white-space:nowrap}
+  .btn:hover{background:rgba(255,255,255,.09);border-color:rgba(120,170,255,.35)}
+  .btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-2));border-color:transparent;
+      box-shadow:0 6px 22px rgba(30,94,255,.4)}
+  .btn-primary:hover{background:linear-gradient(135deg,var(--blue-2),var(--sky));border-color:transparent}
+  .btn-danger{color:var(--danger);border-color:rgba(255,90,110,.35)}
+  .btn-danger:hover{background:rgba(255,90,110,.12)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .team-pill{display:none;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .team-pill img{width:26px;height:26px;border-radius:50%}
+  body.authed .team-pill{display:flex}
+  body.authed .only-guest{display:none}
+  .only-team{display:none}
+  body.authed .only-team{display:inline-flex}
+
+  /* HERO */
+  .hero{padding:56px 0 30px}
+  .hero-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:32px;align-items:center}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.14em;
+      text-transform:uppercase;color:var(--sky);background:rgba(90,184,255,.1);
+      border:1px solid rgba(90,184,255,.25);padding:6px 12px;border-radius:999px}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--sky);box-shadow:0 0 0 0 rgba(90,184,255,.7);animation:pulse 1.8s infinite}
+  @keyframes pulse{70%{box-shadow:0 0 0 10px rgba(90,184,255,0)}100%{box-shadow:0 0 0 0 rgba(90,184,255,0)}}
+  h1{font-family:'Bricolage Grotesque';font-weight:800;font-size:clamp(40px,6vw,72px);
+      line-height:.98;letter-spacing:-.035em;margin:18px 0 16px}
+  h1 em{font-style:normal;background:linear-gradient(90deg,var(--sky),#9fd6ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.lead{color:var(--muted);font-size:17px;max-width:46ch}
+  .player-shell{border-radius:20px;overflow:hidden;background:#000;border:1px solid var(--line);
+      box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(30,94,255,.15);aspect-ratio:16/9;position:relative}
+  .player-shell video{width:100%;height:100%;display:block;background:#000}
+  .feature-meta{margin-top:14px}
+  .feature-meta h2{font-family:'Bricolage Grotesque';font-size:22px;letter-spacing:-.02em}
+  .feature-meta .sub{color:var(--muted);font-size:14px}
+  .hero-side .stats{display:flex;gap:28px;margin-top:28px}
+  .stat b{display:block;font-family:'Bricolage Grotesque';font-size:30px;line-height:1}
+  .stat span{color:var(--muted);font-size:13px}
+  .empty-player{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;
+      background:linear-gradient(135deg,var(--navy-700),var(--navy-900));color:var(--muted)}
+  .empty-player .big{font-family:'Bricolage Grotesque';font-size:26px;color:var(--text);margin-bottom:6px}
+
+  /* LIBRARY */
+  .library{padding:40px 0 80px}
+  .lib-head{display:flex;flex-wrap:wrap;gap:16px;align-items:end;justify-content:space-between;margin-bottom:22px}
+  .lib-head h3{font-family:'Bricolage Grotesque';font-size:32px;letter-spacing:-.025em}
+  .controls{display:flex;gap:10px;flex-wrap:wrap}
+  .search{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:999px;
+      padding:10px 16px;min-width:240px;outline:none}
+  .search:focus{border-color:var(--blue-2)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+  .chip{padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;cursor:pointer;
+      font-size:13px;font-weight:600;color:var(--muted);transition:.15s}
+  .chip:hover{color:var(--text)}
+  .chip.active{background:var(--ice);color:var(--navy-800);border-color:var(--ice)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:22px}
+  .card{background:linear-gradient(180deg,rgba(16,51,110,.55),rgba(6,26,58,.55));border:1px solid var(--line);
+      border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;position:relative}
+  .card:hover{transform:translateY(-4px);border-color:rgba(90,184,255,.45);box-shadow:0 18px 40px rgba(0,0,0,.4)}
+  .thumb{aspect-ratio:16/9;background:linear-gradient(135deg,var(--navy-600),var(--navy-800));position:relative;overflow:hidden}
+  .thumb video,.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .play{position:absolute;inset:0;display:grid;place-items:center;opacity:0;transition:.2s;background:rgba(3,13,34,.35)}
+  .card:hover .thumb .play{opacity:1}
+  .play-btn{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.95);display:grid;place-items:center;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .play-btn::after{content:"";border-left:16px solid var(--blue);border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
+  .tag{position:absolute;top:10px;left:10px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+      padding:4px 9px;border-radius:6px;background:rgba(3,13,34,.8);border:1px solid rgba(90,184,255,.35);color:var(--sky)}
+  .card-body{padding:14px 16px 16px}
+  .card-body h4{font-size:16px;font-weight:600;line-height:1.3;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .card-body .date{font-size:13px;color:var(--muted)}
+  .card .del{position:absolute;top:10px;right:10px;z-index:3;display:none;width:30px;height:30px;border-radius:8px;
+      border:1px solid rgba(255,90,110,.4);background:rgba(3,13,34,.85);color:var(--danger);cursor:pointer;font-size:16px;line-height:1}
+  body.authed .card .del{display:block}
+  .empty{text-align:center;padding:60px 20px;color:var(--muted);border:1px dashed var(--line);border-radius:var(--radius)}
+
+  /* MODALS */
+  .overlay{position:fixed;inset:0;z-index:60;background:rgba(2,8,22,.78);backdrop-filter:blur(6px);
+      display:none;align-items:center;justify-content:center;padding:20px}
+  .overlay.open{display:flex}
+  .modal{width:100%;max-width:520px;background:linear-gradient(180deg,var(--navy-700),var(--navy-800));
+      border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:0 40px 100px rgba(0,0,0,.6);max-height:92vh;overflow:auto}
+  .modal.wide{max-width:980px;padding:0;overflow:hidden}
+  .modal h3{font-family:'Bricolage Grotesque';font-size:26px;letter-spacing:-.02em;margin-bottom:6px}
+  .modal .hint{color:var(--muted);font-size:14px;margin-bottom:20px}
+  .modal .hint a{color:var(--sky)}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px;color:var(--ice)}
+  .field{width:100%;background:rgba(3,13,34,.6);border:1px solid var(--line);border-radius:12px;padding:11px 14px;outline:none}
+  .field:focus{border-color:var(--blue-2)}
+  textarea.field{min-height:80px;resize:vertical}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+  .tabs{display:flex;background:rgba(3,13,34,.6);border:1px solid var(--line);border-radius:12px;padding:4px;margin-top:6px}
+  .tabs button{flex:1;border:0;background:transparent;padding:9px;border-radius:9px;cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)}
+  .tabs button.active{background:var(--blue);color:#fff}
+  .drop{border:2px dashed rgba(90,184,255,.35);border-radius:14px;padding:26px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--sky);background:rgba(90,184,255,.06);color:var(--text)}
+  .drop b{color:var(--sky)}
+  .msg{font-size:14px;margin-top:12px;min-height:20px}
+  .msg.err{color:var(--danger)} .msg.ok{color:var(--ok)}
+  .progress{height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:12px;display:none}
+  .progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--sky));transition:width .3s}
+  .watch-video{width:100%;aspect-ratio:16/9;background:#000;display:block}
+  .watch-info{padding:20px 26px 24px;display:flex;gap:16px;justify-content:space-between;align-items:start}
+  .watch-info h3{font-size:24px}
+  .watch-info p{color:var(--muted);font-size:15px;margin-top:6px;white-space:pre-wrap}
+  .close-x{border:0;background:rgba(255,255,255,.08);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;flex-shrink:0}
+  .close-x:hover{background:rgba(255,255,255,.16)}
+
+  footer{border-top:1px solid var(--line);padding:28px 0;color:var(--muted);font-size:13px}
+  footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);z-index:80;
+      background:var(--ice);color:var(--navy-800);font-weight:600;padding:12px 20px;border-radius:999px;transition:.3s;box-shadow:0 12px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+  @media (max-width:860px){
+    .hero-grid{grid-template-columns:1fr}
+    .hero{padding-top:32px}
+    .row{grid-template-columns:1fr}
+    .search{min-width:0;flex:1}
+    .controls{width:100%}
+    .team-pill span{display:none}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#">
+      <div class="logo-mark">RT</div>
+      <div class="logo-text">Repton <span>Today</span></div>
+    </a>
+    <div class="nav-links">
+      <a class="btn" href="#library">Episodes</a>
+      <div class="team-pill" id="teamPill"><img id="teamAvatar" alt=""><span id="teamName"></span></div>
+      <button class="btn btn-primary only-team" id="openUpload">+ Upload</button>
+      <button class="btn only-team" id="logoutBtn">Log out</button>
+      <button class="btn only-guest" id="openLogin">Team login</button>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="player-shell" id="featureShell">
+        <div class="empty-player" id="featureEmpty">
+          <div><div class="big">Loading episodes…</div></div>
+        </div>
+      </div>
+      <div class="feature-meta" id="featureMeta"></div>
+    </div>
+    <div class="hero-side">
+      <span class="eyebrow"><span class="live-dot"></span>The Repton Today Podcast</span>
+      <h1>All the news.<br><em>None of the filter.</em></h1>
+      <p class="lead">Full episodes, Weekend Update, the boxing segment and courtroom drama — every Repton Today video in one place.</p>
+      <div class="stats">
+        <div class="stat"><b id="statCount">0</b><span>Videos</span></div>
+        <div class="stat"><b id="statSegs">0</b><span>Segments</span></div>
+        <div class="stat"><b id="statLatest">—</b><span>Latest upload</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="library" id="library">
+  <div class="wrap">
+    <div class="lib-head">
+      <h3>Episodes &amp; clips</h3>
+      <div class="controls">
+        <input class="search" id="search" placeholder="Search videos…" type="search">
+        <select class="search" id="sort" style="min-width:0">
+          <option value="new">Newest first</option>
+          <option value="old">Oldest first</option>
+          <option value="az">A–Z</option>
+        </select>
+      </div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>© <span id="year"></span> Repton Today</div>
+    <div>Hosted on GitHub</div>
+  </div>
+</footer>
+
+<!-- WATCH MODAL -->
+<div class="overlay" id="watchOverlay">
+  <div class="modal wide">
+    <video class="watch-video" id="watchVideo" controls playsinline></video>
+    <div class="watch-info">
+      <div>
+        <h3 id="watchTitle"></h3>
+        <div class="date" id="watchMeta" style="color:var(--sky);font-size:13px;font-weight:600;margin-top:4px"></div>
+        <p id="watchDesc"></p>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="shareBtn">Copy link</button>
+        <button class="close-x" data-close>✕</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="overlay" id="loginOverlay">
+  <div class="modal">
+    <h3>Team login</h3>
+    <p class="hint">Only Repton Today team members can upload. Log in with a GitHub access token that has write access to the site's repository. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a token</a> — pick this repo and give it <b>Contents: Read and write</b>.</p>
+    <label for="tokenInput">GitHub access token</label>
+    <input class="field" id="tokenInput" type="password" placeholder="github_pat_…" autocomplete="off">
+    <label style="display:flex;gap:8px;align-items:center;font-weight:500;color:var(--muted)">
+      <input type="checkbox" id="rememberMe" checked> Keep me logged in on this device
+    </label>
+    <div class="msg" id="loginMsg"></div>
+    <div class="modal-actions">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn btn-primary" id="loginBtn">Log in</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD MODAL -->
+<div class="overlay" id="uploadOverlay">
+  <div class="modal">
+    <h3>Upload a video</h3>
+    <p class="hint">Upload an MP4 straight into the repo (max 100 MB), or paste a GitHub link to a video that's already there.</p>
+    <label for="upTitle">Title</label>
+    <input class="field" id="upTitle" placeholder="e.g. Episode 12 — The Big One">
+    <div class="row">
+      <div>
+        <label for="upSegment">Segment</label>
+        <select class="field" id="upSegment">
+          <option>Full Episode</option>
+          <option>Weekend Update</option>
+          <option>Boxing</option>
+          <option>Courtroom</option>
+          <option>Clips</option>
+          <option>Behind the Scenes</option>
+        </select>
+      </div>
+      <div>
+        <label for="upDate">Date</label>
+        <input class="field" id="upDate" type="date">
+      </div>
+    </div>
+    <label for="upDesc">Description (optional)</label>
+    <textarea class="field" id="upDesc" placeholder="What happens in this one?"></textarea>
+
+    <label>Video</label>
+    <div class="tabs" id="srcTabs">
+      <button class="active" data-src="file">Upload file</button>
+      <button data-src="link">GitHub link</button>
+    </div>
+    <div id="srcFile" style="margin-top:12px">
+      <div class="drop" id="drop"><b>Choose a video</b> or drag it here<br><small>MP4 recommended · under 100 MB</small></div>
+      <input type="file" id="fileInput" accept="video/*" hidden>
+    </div>
+    <div id="srcLink" style="margin-top:12px;display:none">
+      <input class="field" id="upLink" placeholder="https://github.com/user/repo/blob/main/videos/ep1.mp4">
+    </div>
+    <label for="upThumb">Thumbnail link (optional)</label>
+    <input class="field" id="upThumb" placeholder="Leave blank to use a frame from the video">
+
+    <div class="progress" id="progress"><i></i></div>
+    <div class="msg" id="upMsg"></div>
+    <div class="modal-actions">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn btn-primary" id="publishBtn">Publish</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   SETUP — change these three lines to your GitHub repo.
+   ============================================================ */
+const CONFIG = {
+  owner:  "judecrui-code",
+  repo:   "Repton-Today",
+  branch: "main"                    // branch GitHub Pages publishes from
+};
+/* ============================================================ */
+
+const API = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}`;
+const $ = s => document.querySelector(s);
+const state = { videos: [], filter: "All", q: "", sort: "new", token: null, user: null, file: null, src: "file" };
+
+/* ---------- helpers ---------- */
+const store = {
+  get(k){ try{ return localStorage.getItem(k) || sessionStorage.getItem(k); }catch(e){ return null; } },
+  set(k,v,persist){ try{ (persist?localStorage:sessionStorage).setItem(k,v); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); sessionStorage.removeItem(k); }catch(e){} }
+};
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate = d => { if(!d) return ""; const x = new Date(d+"T12:00:00"); return isNaN(x) ? d : x.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"}); };
+const b64encodeText = str => btoa(unescape(encodeURIComponent(str)));
+const b64decodeText = b64 => decodeURIComponent(escape(atob(b64.replace(/\n/g,""))));
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,50) || "video";
+function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),2600); }
+
+/* Turn any GitHub link into one a <video> tag can play. */
+function playableUrl(url){
+  if(!url) return "";
+  url = url.trim();
+  const m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/(?:blob|raw)\/([^/]+)\/(.+?)(\?.*)?$/i);
+  if(m){
+    const [, o, r, b, path] = m;
+    // Same repo as this site → serve from GitHub Pages (correct video headers, no raw limits)
+    if(o.toLowerCase()===CONFIG.owner.toLowerCase() && r.toLowerCase()===CONFIG.repo.toLowerCase() && isPagesHost()) return path;
+    return `https://raw.githubusercontent.com/${o}/${r}/${b}/${path}`;
+  }
+  return url;
+}
+function isPagesHost(){ return /github\.io$/i.test(location.hostname); }
+// Files committed to this repo are stored as relative paths ("videos/x.mp4").
+function resolveSrc(p){
+  if(!p) return "";
+  if(/^https?:\/\//i.test(p)) return playableUrl(p);
+  if(isPagesHost()) return p;
+  return `https://raw.githubusercontent.com/${CONFIG.owner}/${CONFIG.repo}/${CONFIG.branch}/${p}`;
+}
+
+/* ---------- GitHub API ---------- */
+async function gh(path, opts={}){
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { "Accept":"application/vnd.github+json", ...(state.token?{"Authorization":`Bearer ${state.token}`}:{}), ...(opts.headers||{}) }
+  });
+  if(!res.ok){
+    let msg = res.status + " " + res.statusText;
+    try{ const j = await res.json(); if(j.message) msg = j.message; }catch(e){}
+    const err = new Error(msg); err.status = res.status; throw err;
+  }
+  return res.status===204 ? null : res.json();
+}
+
+async function readVideosFromApi(){
+  try{
+    const f = await gh(`/contents/videos.json?ref=${CONFIG.branch}&t=${Date.now()}`);
+    return { list: JSON.parse(b64decodeText(f.content)), sha: f.sha };
+  }catch(e){
+    if(e.status===404) return { list: [], sha: null };
+    throw e;
+  }
+}
+
+/* ---------- load ---------- */
+async function load(){
+  let list = null;
+  // Logged in → read straight from the repo so new uploads show instantly.
+  if(state.token){ try{ list = (await readVideosFromApi()).list; }catch(e){} }
+  if(!list){ try{ const r = await fetch("videos.json?t="+Date.now()); if(r.ok) list = await r.json(); }catch(e){} }
+  if(!list){ try{ list = (await readVideosFromApi()).list; }catch(e){} }
+  state.videos = Array.isArray(list) ? list : [];
+  render();
+  openFromHash();
+}
+
+/* ---------- render ---------- */
+function sorted(list){
+  const l = [...list];
+  if(state.sort==="new") l.sort((a,b)=>(b.date||"").localeCompare(a.date||"") || (b.added||0)-(a.added||0));
+  if(state.sort==="old") l.sort((a,b)=>(a.date||"").localeCompare(b.date||"") || (a.added||0)-(b.added||0));
+  if(state.sort==="az") l.sort((a,b)=>a.title.localeCompare(b.title));
+  return l;
+}
+
+function render(){
+  const v = state.videos;
+  const segs = [...new Set(v.map(x=>x.segment).filter(Boolean))];
+  $("#statCount").textContent = v.length;
+  $("#statSegs").textContent = segs.length;
+  const newest = sorted(v)[0];
+  $("#statLatest").textContent = newest ? fmtDate(newest.date).replace(/,? \d{4}$/,"") : "—";
+
+  // chips
+  if(!["All",...segs].includes(state.filter)) state.filter="All";
+  $("#chips").innerHTML = ["All",...segs].map(s=>`<button class="chip ${s===state.filter?"active":""}" data-seg="${esc(s)}">${esc(s)}</button>`).join("");
+
+  // featured
+  const shell = $("#featureShell");
+  if(newest){
+    const src = resolveSrc(newest.src);
+    if(shell.dataset.id !== newest.id){
+      shell.dataset.id = newest.id;
+      shell.innerHTML = `<video controls playsinline preload="metadata" ${newest.thumb?`poster="${esc(resolveSrc(newest.thumb))}"`:""} src="${esc(src)}${newest.thumb?"":"#t=0.5"}"></video>`;
+    }
+    $("#featureMeta").innerHTML = `<div class="sub">Latest · ${esc(newest.segment||"")} · ${esc(fmtDate(newest.date))}</div><h2>${esc(newest.title)}</h2>`;
+  }else{
+    shell.dataset.id = "";
+    shell.innerHTML = `<div class="empty-player"><div><div class="big">No episodes yet</div>The team hasn't uploaded anything — check back soon.</div></div>`;
+    $("#featureMeta").innerHTML = "";
+  }
+
+  // grid
+  const q = state.q.toLowerCase();
+  const list = sorted(v).filter(x =>
+    (state.filter==="All" || x.segment===state.filter) &&
+    (!q || (x.title+" "+(x.description||"")+" "+(x.segment||"")).toLowerCase().includes(q))
+  );
+  const grid = $("#grid");
+  if(!list.length){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">${v.length ? "No videos match that search." : "No videos yet."}</div>`;
+    return;
+  }
+  grid.innerHTML = list.map(x => {
+    const thumb = x.thumb
+      ? `<img src="${esc(resolveSrc(x.thumb))}" alt="" loading="lazy">`
+      : `<video muted preload="metadata" playsinline src="${esc(resolveSrc(x.src))}#t=1"></video>`;
+    return `<article class="card" data-id="${esc(x.id)}">
+      <button class="del" data-del="${esc(x.id)}" title="Delete video">✕</button>
+      <div class="thumb">${thumb}<span class="tag">${esc(x.segment||"Video")}</span><div class="play"><div class="play-btn"></div></div></div>
+      <div class="card-body"><h4>${esc(x.title)}</h4><div class="date">${esc(fmtDate(x.date))}</div></div>
+    </article>`;
+  }).join("");
+}
+
+/* ---------- watch ---------- */
+function openWatch(id){
+  const x = state.videos.find(v=>v.id===id); if(!x) return;
+  const vid = $("#watchVideo");
+  vid.src = resolveSrc(x.src);
+  vid.poster = x.thumb ? resolveSrc(x.thumb) : "";
+  $("#watchTitle").textContent = x.title;
+  $("#watchMeta").textContent = [x.segment, fmtDate(x.date)].filter(Boolean).join(" · ");
+  $("#watchDesc").textContent = x.description || "";
+  openModal("#watchOverlay");
+  history.replaceState(null,"","#watch="+encodeURIComponent(id));
+  vid.play().catch(()=>{});
+}
+function openFromHash(){
+  const m = location.hash.match(/^#watch=(.+)$/);
+  if(m) openWatch(decodeURIComponent(m[1]));
+}
+
+/* ---------- modals ---------- */
+function openModal(sel){ $(sel).classList.add("open"); }
+function closeModal(el){
+  el.classList.remove("open");
+  if(el.id==="watchOverlay"){ const v=$("#watchVideo"); v.pause(); v.removeAttribute("src"); v.load(); if(location.hash.startsWith("#watch=")) history.replaceState(null,"",location.pathname+location.search); }
+}
+document.querySelectorAll(".overlay").forEach(o=>{
+  o.addEventListener("click", e => { if(e.target===o || e.target.closest("[data-close]")) closeModal(o); });
+});
+document.addEventListener("keydown", e => { if(e.key==="Escape") document.querySelectorAll(".overlay.open").forEach(closeModal); });
+
+/* ---------- auth ---------- */
+async function login(token, persist){
+  state.token = token;
+  const repo = await gh("");                       // checks token can see the repo
+  if(!repo.permissions || !repo.permissions.push){ state.token=null; throw new Error("This account isn't on the Repton Today team (no write access to the repo)."); }
+  let user = null;
+  try{ const r = await fetch("https://api.github.com/user",{headers:{Authorization:`Bearer ${token}`}}); if(r.ok) user = await r.json(); }catch(e){}
+  state.user = user;
+  store.set("rt_token", token, persist);
+  setAuthedUI();
+}
+function setAuthedUI(){
+  document.body.classList.toggle("authed", !!state.token);
+  if(state.user){
+    $("#teamAvatar").src = state.user.avatar_url || "";
+    $("#teamName").textContent = state.user.login || "Team";
+  }else{ $("#teamName").textContent = "Team"; $("#teamAvatar").removeAttribute("src"); }
+}
+function logout(){ state.token=null; state.user=null; store.del("rt_token"); setAuthedUI(); toast("Logged out"); }
+
+$("#openLogin").onclick = () => { $("#loginMsg").textContent=""; openModal("#loginOverlay"); setTimeout(()=>$("#tokenInput").focus(),50); };
+$("#logoutBtn").onclick = logout;
+$("#tokenInput").addEventListener("keydown", e => { if(e.key==="Enter") $("#loginBtn").click(); });
+$("#loginBtn").onclick = async () => {
+  const t = $("#tokenInput").value.trim(), msg = $("#loginMsg");
+  if(!t){ msg.className="msg err"; msg.textContent="Paste your token first."; return; }
+  if(CONFIG.owner==="YOUR-GITHUB-USERNAME"){ msg.className="msg err"; msg.textContent="Site isn't set up yet — fill in CONFIG at the bottom of index.html."; return; }
+  $("#loginBtn").disabled = true; msg.className="msg"; msg.textContent="Checking…";
+  try{
+    await login(t, $("#rememberMe").checked);
+    $("#tokenInput").value=""; closeModal($("#loginOverlay"));
+    toast(`Welcome${state.user?", "+state.user.login:""}!`); load();
+  }catch(e){
+    state.token=null; msg.className="msg err";
+    msg.textContent = e.status===401 ? "That token isn't valid." : e.status===404 ? "Token can't see the repo — make sure you selected it when creating the token." : e.message;
+  }finally{ $("#loginBtn").disabled=false; }
+};
+
+/* ---------- upload ---------- */
+$("#openUpload").onclick = () => {
+  $("#upMsg").textContent=""; $("#progress").style.display="none";
+  if(!$("#upDate").value) $("#upDate").value = new Date().toISOString().slice(0,10);
+  openModal("#uploadOverlay");
+};
+$("#srcTabs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if(!b) return;
+  state.src = b.dataset.src;
+  $("#srcTabs").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
+  $("#srcFile").style.display = state.src==="file"?"":"none";
+  $("#srcLink").style.display = state.src==="link"?"":"none";
+});
+const drop = $("#drop"), fileInput = $("#fileInput");
+drop.onclick = () => fileInput.click();
+fileInput.onchange = () => setFile(fileInput.files[0]);
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop", e => setFile(e.dataTransfer.files[0]));
+function setFile(f){
+  if(!f) return;
+  if(!f.type.startsWith("video/")){ toast("That isn't a video file"); return; }
+  if(f.size > 100*1024*1024){ toast("Too big — GitHub's limit is 100 MB per file"); return; }
+  state.file = f;
+  drop.innerHTML = `<b>${esc(f.name)}</b><br><small>${(f.size/1048576).toFixed(1)} MB · click to change</small>`;
+  if(!$("#upTitle").value) $("#upTitle").value = f.name.replace(/\.[^.]+$/,"").replace(/[-_]+/g," ");
+}
+function fileToBase64(f){
+  return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(",")[1]); r.onerror=rej; r.readAsDataURL(f); });
+}
+function setProgress(p){ $("#progress").style.display="block"; $("#progress i").style.width=p+"%"; }
+
+$("#publishBtn").onclick = async () => {
+  const msg = $("#upMsg"), btn = $("#publishBtn");
+  const title = $("#upTitle").value.trim();
+  if(!title){ msg.className="msg err"; msg.textContent="Give it a title."; return; }
+  if(state.src==="file" && !state.file){ msg.className="msg err"; msg.textContent="Choose a video file."; return; }
+  if(state.src==="link" && !/^https?:\/\//i.test($("#upLink").value.trim())){ msg.className="msg err"; msg.textContent="Paste a full link starting with https://"; return; }
+
+  btn.disabled = true; msg.className="msg";
+  try{
+    const id = slug(title) + "-" + Date.now().toString(36);
+    let src;
+    if(state.src==="file"){
+      msg.textContent = "Preparing video…"; setProgress(10);
+      const ext = (state.file.name.match(/\.[^.]+$/)||[".mp4"])[0].toLowerCase();
+      const path = `videos/${id}${ext}`;
+      const content = await fileToBase64(state.file);
+      msg.textContent = "Uploading to GitHub… (big files take a minute)"; setProgress(35);
+      await gh(`/contents/${path}`, { method:"PUT", body: JSON.stringify({ message:`Upload video: ${title}`, content, branch: CONFIG.branch }) });
+      src = path;
+    }else{
+      src = $("#upLink").value.trim();
+    }
+    setProgress(75); msg.textContent = "Adding to the library…";
+    const entry = { id, title, segment: $("#upSegment").value, date: $("#upDate").value, description: $("#upDesc").value.trim(), src, thumb: $("#upThumb").value.trim() || undefined, added: Date.now(), by: state.user?.login };
+    await saveList(list => [entry, ...list], `Add video: ${title}`);
+    setProgress(100); msg.className="msg ok"; msg.textContent = "Published! Visitors will see it within a minute or two.";
+    toast("Video published");
+    resetUpload();
+    setTimeout(()=>closeModal($("#uploadOverlay")), 900);
+  }catch(e){
+    msg.className="msg err"; msg.textContent = "Upload failed: " + e.message;
+  }finally{ btn.disabled=false; }
+};
+function resetUpload(){
+  state.file=null; fileInput.value="";
+  ["#upTitle","#upDesc","#upLink","#upThumb"].forEach(s=>$(s).value="");
+  drop.innerHTML = `<b>Choose a video</b> or drag it here<br><small>MP4 recommended · under 100 MB</small>`;
+}
+
+// Read-modify-write videos.json, retrying once if someone else saved at the same time.
+async function saveList(mutator, message){
+  for(let attempt=0; attempt<3; attempt++){
+    const { list, sha } = await readVideosFromApi();
+    const next = mutator(list);
+    try{
+      await gh(`/contents/videos.json`, { method:"PUT", body: JSON.stringify({
+        message, branch: CONFIG.branch, content: b64encodeText(JSON.stringify(next, null, 2) + "\n"), ...(sha?{sha}:{})
+      })});
+      state.videos = next; render(); return;
+    }catch(e){ if(e.status!==409 && e.status!==422) throw e; }
+  }
+  throw new Error("Couldn't save — someone else was editing. Try again.");
+}
+
+/* ---------- delete ---------- */
+async function deleteVideo(id){
+  const x = state.videos.find(v=>v.id===id); if(!x) return;
+  if(!confirm(`Delete "${x.title}"?`)) return;
+  try{
+    await saveList(list => list.filter(v=>v.id!==id), `Remove video: ${x.title}`);
+    // Also remove the file itself if it lives in this repo
+    if(x.src && !/^https?:/i.test(x.src)){
+      try{ const f = await gh(`/contents/${x.src}?ref=${CONFIG.branch}`); await gh(`/contents/${x.src}`,{method:"DELETE",body:JSON.stringify({message:`Delete file: ${x.title}`,sha:f.sha,branch:CONFIG.branch})}); }catch(e){}
+    }
+    toast("Video deleted");
+  }catch(e){ toast("Delete failed: "+e.message); }
+}
+
+/* ---------- events ---------- */
+$("#grid").addEventListener("click", e => {
+  const d = e.target.closest("[data-del]"); if(d){ e.stopPropagation(); deleteVideo(d.dataset.del); return; }
+  const c = e.target.closest(".card"); if(c) openWatch(c.dataset.id);
+});
+$("#chips").addEventListener("click", e => { const c=e.target.closest(".chip"); if(c){ state.filter=c.dataset.seg; render(); } });
+$("#search").addEventListener("input", e => { state.q=e.target.value; render(); });
+$("#sort").addEventListener("change", e => { state.sort=e.target.value; render(); });
+$("#shareBtn").onclick = async () => { try{ await navigator.clipboard.writeText(location.href); toast("Link copied"); }catch(e){ toast(location.href); } };
+window.addEventListener("hashchange", openFromHash);
+$("#year").textContent = new Date().getFullYear();
+
+/* ---------- start ---------- */
+(async () => {
+  const saved = store.get("rt_token");
+  let persisted = false; try{ persisted = !!localStorage.getItem("rt_token"); }catch(e){}
+  if(saved){ try{ await login(saved, persisted); }catch(e){ store.del("rt_token"); state.token=null; } }
+  setAuthedUI();
+  load();
+})();
+</script>
+</body>
+</html>
