@@ -159,6 +159,9 @@
   .ytp.playing .ytp-bigplay{opacity:0}
   .ytp-bigplay div{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-2));display:grid;place-items:center;box-shadow:0 10px 34px rgba(30,94,255,.55)}
   .ytp-bigplay svg{width:30px;height:30px;fill:#fff;margin-left:3px}
+  .ytp.loading .ytp-bigplay svg{display:none}
+  .ytp.loading .ytp-bigplay div::after{content:"";width:30px;height:30px;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:ytspin .8s linear infinite}
+  @keyframes ytspin{to{transform:rotate(360deg)}}
   .ytp-bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:10px;padding:26px 14px 10px;
       background:linear-gradient(0deg,rgba(3,13,34,.92),rgba(3,13,34,0));transition:opacity .25s;z-index:2}
   .ytp.playing:not(.active) .ytp-bar{opacity:0}
@@ -429,15 +432,17 @@ function mountYT(box, id, poster, autoplay){
       <button class="ytp-btn" data-a="mute" aria-label="Mute">${ICON.vol}</button>
       <button class="ytp-btn" data-a="fs" aria-label="Fullscreen">${ICON.fs}</button>
     </div>`;
+  loadYT();   // warm up YouTube's script so the first click starts quickly
   const q = sel => box.querySelector(sel);
   const seek = q(".ytp-seek");
   let player = null, ready = false, dead = false, timer = null, idle = null;
   const setPP = playing => { q('[data-a="pp"]').innerHTML = playing ? ICON.pause : ICON.play; box.classList.toggle("playing", playing); };
   function onState(e){
     const S = YT.PlayerState;
-    if(e.data === S.PLAYING){ box.classList.add("started"); box.classList.remove("ended"); setPP(true); }
-    else if(e.data === S.PAUSED){ setPP(false); }
-    else if(e.data === S.ENDED){ box.classList.add("ended"); setPP(false); }
+    if(e.data === S.PLAYING){ box.classList.add("started"); box.classList.remove("ended","loading"); setPP(true); }
+    else if(e.data === S.PAUSED){ box.classList.remove("loading"); setPP(false); }
+    else if(e.data === S.ENDED){ box.classList.remove("loading"); box.classList.add("ended"); setPP(false); }
+    else if(e.data === S.BUFFERING){ box.classList.add("loading"); }
   }
   function tick(){
     if(!ready || !player || !player.getDuration) return;
@@ -452,13 +457,13 @@ function mountYT(box, id, poster, autoplay){
       player = new YT.Player(q(".ytp-frame > div"), {
         host: "https://www.youtube-nocookie.com", videoId: id,
         playerVars: { controls:0, disablekb:1, modestbranding:1, rel:0, playsinline:1, iv_load_policy:3, fs:0, cc_load_policy:0, autoplay: play?1:0 },
-        events: { onReady: e => { ready = true; if(play) e.target.playVideo(); tick(); }, onStateChange: onState }
+        events: { onReady: e => { ready = true; try{ e.target.unloadModule && e.target.unloadModule("captions"); }catch(_){} if(play) e.target.playVideo(); tick(); }, onStateChange: onState }
       });
       timer = setInterval(tick, 250);
     });
   }
   function toggle(){
-    if(!player){ init(true); return; }
+    if(!player){ box.classList.add("loading"); init(true); return; }
     if(!ready) return;
     const st = player.getPlayerState();
     if(st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING) player.pauseVideo();
