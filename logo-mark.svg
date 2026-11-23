@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Repton Today">
+  <circle cx="60" cy="60" r="58" fill="#0B2545"/>
+  <circle cx="60" cy="60" r="53" fill="none" stroke="#C9A24B" stroke-width="2.5"/>
+  <g fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round">
+    <path d="M35.96 53.96A34 34 0 0 1 84.04 53.96" opacity="1"/>
+    <path d="M28.89 46.89A44 44 0 0 1 91.11 46.89" opacity=".7"/>
+    <path d="M21.82 39.82A54 54 0 0 1 98.18 39.82" opacity=".4"/>
+  </g>
+  <path d="M36 80A24 24 0 0 1 84 80Z" fill="#C9A24B"/>
+  <path d="M26 86.5H94" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M38 95H82" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".5"/>
+</svg>
