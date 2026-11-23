@@ -119,6 +119,20 @@
   .sec-title{font:700 30px/1 'Cormorant Garamond',Georgia,serif;color:var(--ink)}
   .prog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.35)}
   .prog i{display:block;height:100%;background:var(--gold-2)}
+  /* TEAM */
+  .team{padding:58px 0;background:var(--paper)}
+  .team-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:26px;flex-wrap:wrap}
+  .team-head h3{font:700 36px/1.1 'Cormorant Garamond',Georgia,serif;color:var(--ink);margin-top:10px}
+  .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:22px}
+  .tm{background:#fff;border:1px solid var(--line-l);border-radius:16px;overflow:hidden;position:relative;box-shadow:0 6px 20px rgba(11,37,69,.07)}
+  .tm-ph{aspect-ratio:4/5;background:linear-gradient(160deg,#0B2545,#13315c);display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .tm-ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .tm-ph span{font:700 72px/1 'Cormorant Garamond',Georgia,serif;color:var(--gold-2)}
+  .tm-info{padding:14px 16px 18px;border-top:3px solid var(--gold)}
+  .tm-info b{display:block;font:700 22px/1.15 'Cormorant Garamond',Georgia,serif;color:var(--ink)}
+  .tm-info small{display:block;margin-top:6px;color:var(--gold);font-weight:600;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;line-height:1.35}
+  .tm-edit{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:var(--ink);cursor:pointer;font-size:15px;align-items:center;justify-content:center}
+  .tm-prev{width:90px;height:112px;border-radius:10px;object-fit:cover;background:#0B2545;display:none;margin:6px 0}
   /* ABOUT */
   .about{background:#fff;border-top:1px solid var(--line-l);border-bottom:1px solid var(--line-l);padding:54px 0}
   .about-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:46px;align-items:start}
@@ -246,6 +260,7 @@
     </a>
     <div class="nav-links">
       <a class="nav-link" href="#library">Episodes</a>
+      <a class="nav-link" href="#team">Team</a>
       <a class="nav-link" href="#about">About</a>
       <div class="team-pill" id="teamPill"><img id="teamAvatar" alt="" style="display:none"><span id="teamName"></span></div>
       <button class="btn btn-primary only-team" id="openUpload">+ Upload</button>
@@ -303,6 +318,16 @@
   </div>
 </main>
 
+<section class="team" id="team">
+  <div class="wrap">
+    <div class="team-head">
+      <div><span class="eyebrow dark">The crew</span><h3>Meet the team</h3></div>
+      <button class="btn only-team" id="addMember">+ Add member</button>
+    </div>
+    <div class="team-grid" id="teamGrid"></div>
+  </div>
+</section>
+
 <section class="about" id="about">
   <div class="wrap about-grid">
     <div><span class="eyebrow dark">About</span><h3>The Repton Today podcast</h3></div>
@@ -341,6 +366,27 @@
 </div>
 
 <!-- EDIT MODAL -->
+<div class="overlay" id="teamOverlay">
+  <div class="modal">
+    <h3 id="tmTitle">Team member</h3>
+    <label for="tmName">Name</label>
+    <input class="field" id="tmName">
+    <label for="tmRole">Role</label>
+    <input class="field" id="tmRole" placeholder="e.g. Director of Photography">
+    <label for="tmPhoto">Photo</label>
+    <img class="tm-prev" id="tmPrev" alt="">
+    <input type="file" id="tmPhoto" accept="image/*" class="field">
+    <div class="msg" id="tmMsg"></div>
+    <div class="modal-actions" style="flex-wrap:wrap">
+      <button class="btn btn-danger" id="tmDel" style="margin-right:auto">Delete</button>
+      <button class="btn" id="tmLeft" title="Move earlier">←</button>
+      <button class="btn" id="tmRight" title="Move later">→</button>
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn btn-primary" id="tmSave">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="editOverlay">
   <div class="modal">
     <h3>Edit video</h3>
@@ -976,6 +1022,86 @@ async function pinVideo(id){
   }catch(e){ toast("Couldn't pin: " + (e.message || e)); }
 }
 
+/* ---------- meet the team ---------- */
+const TEAM_FALLBACK = [
+  {id:"nia",name:"Nia",role:"Leader",position:1},
+  {id:"jude",name:"Jude",role:"Assistant Videographer & Graphic Designer",position:2},
+  {id:"liam",name:"Liam",role:"Executive Producer",position:3},
+  {id:"ali",name:"Ali",role:"Director of Photography",position:4},
+  {id:"miguel",name:"Miguel",role:"Sound Mixer",position:5}];
+state.team = TEAM_FALLBACK; state.tmFile = null;
+async function loadTeam(){
+  try{ const { data, error } = await sb.from("team").select("*").order("position"); if(error) throw error; if(data && data.length) state.team = data; }catch(e){}
+  renderTeam();
+}
+function renderTeam(){
+  $("#teamGrid").innerHTML = state.team.map(m => `<div class="tm"><div class="tm-ph">${m.photo ? `<img src="${esc(m.photo)}" alt="${esc(m.name)}" loading="lazy">` : `<span>${esc((m.name||"?").trim().charAt(0).toUpperCase())}</span>`}</div>
+    <div class="tm-info"><b>${esc(m.name)}</b><small>${esc(m.role||"")}</small></div>
+    <button class="tm-edit only-team" data-tm="${esc(m.id)}" title="Edit">✎</button></div>`).join("");
+}
+function resizeImage(file, max=900){
+  return new Promise((res, rej) => {
+    const img = new Image(), u = URL.createObjectURL(file);
+    img.onload = () => { const k = Math.min(1, max/Math.max(img.width,img.height)), c = document.createElement("canvas");
+      c.width = Math.round(img.width*k); c.height = Math.round(img.height*k); c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(u); c.toBlob(b => b ? res(b) : rej(new Error("Could not read image")), "image/jpeg", .86); };
+    img.onerror = () => rej(new Error("That file isn't a readable image")); img.src = u;
+  });
+}
+function openTeamEdit(id){
+  const m = id ? state.team.find(t => t.id === id) : null;
+  state.tmId = id || null; state.tmFile = null; state.tmClear = false;
+  $("#tmTitle").textContent = m ? "Edit team member" : "Add team member";
+  $("#tmName").value = m ? m.name : ""; $("#tmRole").value = m ? (m.role||"") : ""; $("#tmPhoto").value = "";
+  const pv = $("#tmPrev"); pv.style.display = m && m.photo ? "block" : "none"; pv.src = m && m.photo ? m.photo : "";
+  $("#tmDel").style.display = m ? "" : "none"; $("#tmLeft").style.display = $("#tmRight").style.display = m ? "" : "none";
+  $("#tmMsg").textContent = ""; openModal("#teamOverlay");
+}
+$("#tmPhoto").onchange = e => { const f = e.target.files[0]; state.tmFile = f || null; if(f){ const pv = $("#tmPrev"); pv.src = URL.createObjectURL(f); pv.style.display = "block"; } };
+$("#tmSave").onclick = async () => {
+  const msg = $("#tmMsg"), name = $("#tmName").value.trim(), role = $("#tmRole").value.trim();
+  if(!name){ msg.className = "msg err"; msg.textContent = "Add a name."; return; }
+  $("#tmSave").disabled = true; msg.className = "msg"; msg.textContent = "Saving…";
+  try{
+    const old = state.team.find(t => t.id === state.tmId);
+    const id = state.tmId || (slug(name) + "-" + Date.now().toString(36));
+    let photo = old ? old.photo : null;
+    if(state.tmFile){
+      const blob = await resizeImage(state.tmFile), path = `team/${id}-${Date.now()}.jpg`;
+      const up = await sb.storage.from(CONFIG.bucket).upload(path, blob, { contentType:"image/jpeg", upsert:true }); if(up.error) throw up.error;
+      photo = sb.storage.from(CONFIG.bucket).getPublicUrl(path).data.publicUrl;
+    }
+    const row = { id, name, role: role || null, photo };
+    if(!old) row.position = state.team.reduce((a,t) => Math.max(a, t.position||0), 0) + 1;
+    const { data, error } = await sb.from("team").upsert(row).select(); if(error) throw error;
+    if(!data || !data.length) throw new Error("Not saved — make sure you're logged in as admin.");
+    closeModal($("#teamOverlay")); toast("Saved"); await loadTeam();
+  }catch(e){ msg.className = "msg err"; msg.textContent = e.message || String(e); }
+  finally{ $("#tmSave").disabled = false; }
+};
+$("#tmDel").onclick = async () => {
+  const m = state.team.find(t => t.id === state.tmId); if(!m || !confirm(`Remove ${m.name} from the team?`)) return;
+  try{ const { data, error } = await sb.from("team").delete().eq("id", m.id).select(); if(error) throw error;
+    if(!data || !data.length) throw new Error("Not deleted — log in as admin.");
+    closeModal($("#teamOverlay")); toast("Removed"); await loadTeam();
+  }catch(e){ $("#tmMsg").className = "msg err"; $("#tmMsg").textContent = e.message || String(e); }
+};
+async function moveMember(dir){
+  const i = state.team.findIndex(t => t.id === state.tmId), j = i + dir;
+  if(i < 0 || j < 0 || j >= state.team.length) return;
+  const a = state.team[i], b = state.team[j];
+  try{
+    // positions may tie, so renumber the whole list
+    const order = state.team.map(t => t.id); order.splice(i,1); order.splice(j,0,a.id);
+    for(let k = 0; k < order.length; k++){ const { error } = await sb.from("team").update({ position: k+1 }).eq("id", order[k]); if(error) throw error; }
+    toast("Moved"); await loadTeam();
+  }catch(e){ toast("Couldn't move: " + (e.message || e)); }
+}
+$("#tmLeft").onclick = () => moveMember(-1);
+$("#tmRight").onclick = () => moveMember(1);
+$("#addMember").onclick = () => openTeamEdit(null);
+$("#teamGrid").addEventListener("click", e => { const b = e.target.closest("[data-tm]"); if(b) openTeamEdit(b.dataset.tm); });
+
 /* ---------- events ---------- */
 $("#library").addEventListener("click", e => {
   const d = e.target.closest("[data-del]"); if(d){ e.stopPropagation(); deleteVideo(d.dataset.del); return; }
@@ -1001,7 +1127,7 @@ $("#year").textContent = new Date().getFullYear();
   const { data } = await sb.auth.getSession();
   await applySession(data.session);
   sb.auth.onAuthStateChange((_e, session) => applySession(session));
-  load();
+  load(); loadTeam();
 })();
 </script>
 </body>
